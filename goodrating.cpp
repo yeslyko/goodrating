@@ -220,10 +220,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							line == "査定中" || line == "999" || line == "X") {
 						folder = -1;
 					}
-					else if (line == "0-" || line == "-2" || line == "-1") {
-						folder = 0;
-					}
-					else if (line == "DELAY_BEGINNER") {
+					else if (line == "0-" || line == "-2" || line == "-1" || line == "DELAY_BEGINNER") {
 						folder = 0;
 					}
 					else if (line == "DELAY_MASTER") {
