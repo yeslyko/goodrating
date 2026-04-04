@@ -79,14 +79,14 @@ std::unordered_map<std::string, int> tableTable; // [table][folder] - amount of 
 
 int mode;
 
-bool checkForTable(std::string table, Chart* chart) {
-	for (auto t : chart->tablesFolders) {
+static bool checkForTable(const std::string& table, Chart* chart) {
+	for (const auto& t : chart->tablesFolders) {
 		if (t.first == table) return true;
 	}
 	return false;
 }
 
-int clearConversion(std::string clearType) {
+static int clearConversion(const std::string& clearType) {
 	if (clearType == "Failed") return 0;
 	if (clearType == "EasyClear") return 1;
 	if (clearType == "NormalClear") return 1;
@@ -95,7 +95,7 @@ int clearConversion(std::string clearType) {
 	return -1;
 }
 
-float clearProbability(float pr, float cr) {
+static float clearProbability(float pr, float cr) {
 	float sigma = ((mode == 1) ? 1.F : 0.5F);
 	return (0.5F * (1.F + std::erf((pr - cr) / (sqrt(2.F) * sigma))));
 }
