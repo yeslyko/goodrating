@@ -823,42 +823,6 @@ static bool runFullIterations() {
 	return false;
 }
 
-/* !!! UNDER CONSTRUCTION !!!
-void loadSongs() {
-	std::ifstream charts((mode == 1) ? "output/sp/charts.csv" : "output/dp/charts.csv");
-
-	if (charts.is_open()) {
-		std::string row;
-		while (std::getline(charts, row)) {
-			std::stringstream ss(row);
-			std::string line;
-			std::vector<std::string> lines;
-			while (std::getline(ss, line, ';')) {
-				lines.push_back(line);
-			}
-			Chart chart;
-			chart.table = lines[0];
-			try {
-				chart.folder = from_chars<int>(lines[1]).value();
-			}
-			catch (...) {
-				chart.folder = -1;
-			}
-			chart.rating = from_chars<float>(lines[2]).value();
-			chart.hcrating = from_chars<float>(lines[3]).value();
-			chart.name = lines[7];
-			songTable.insert(std::make_pair(lines[8], chart));
-		}
-		charts.close();
-		calcImportantFolderAverages();
-		calcFolderNormalizers(&folderNormalizer);
-	}
-	else {
-		std::cout << "die instantly";
-	}
-}
-!!! UNDER CONSTRUCTION !!! */
-
 static void calcOtherIRScores(const std::string& path, const std::string& supplement) {
 	// if (songTable.size() == 0) loadSongs();
 
