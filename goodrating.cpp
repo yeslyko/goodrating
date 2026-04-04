@@ -22,7 +22,7 @@ struct Player {
 	float rating;
 	std::unordered_map<std::string, int> clears; // md5, clear
 	std::string supplement;
-	std::unordered_map<std::string, int> completionList;
+	std::unordered_map<std::string, std::unordered_map<int, int>> completionList;
 };
 
 struct Chart {
@@ -453,9 +453,8 @@ static float calcFailWeight(const Player& player, const Chart& chart) {
 	float failWeight = 0;
 
 	for (const auto& [table, level] : chart.tablesFolders) {
-		const auto table_and_level = table + std::to_string(level);
 		int chartCount = tableTable.at(table).at(level);
-		int playCount = player.completionList.find(table_and_level)->second;
+		int playCount = player.completionList.at(table).at(level);
 		failWeight = std::max(failWeight, static_cast<float>(playCount) / static_cast<float>(chartCount));
 	}
 
@@ -531,19 +530,10 @@ static float guessRating(Chart& chart) {
 }
 
 static void countFolderCompletions() {
-	for (auto& p : playerTable) {
-		Player& poland = p.second;
-		for (const auto& [md5, _clear] : poland.clears) {
-			const Chart& chart = songTable.find(md5)->second;
-			for (const auto& table : chart.tablesFolders) {
-				std::string tableFolder = table.first + std::to_string(table.second);
-				if (auto it = poland.completionList.find(tableFolder);
-						it != poland.completionList.end()) {
-					it->second++;
-				}
-				else {
-					poland.completionList.emplace(tableFolder, 1);
-				}
+	for (auto& [_id, player] : playerTable) {
+		for (const auto& [md5, _clear] : player.clears) {
+			for (const auto& [name, level] : songTable.at(md5).tablesFolders) {
+				player.completionList[name][level] += 1;
 			}
 		}
 	}
