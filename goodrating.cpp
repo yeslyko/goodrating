@@ -9,7 +9,7 @@
 #include <vector>
 #include <chrono>
 #include <omp.h>
-#include <limits>
+#include <span>
 
 struct Player {
 	std::string name;
@@ -958,45 +958,43 @@ void recommendTachi(std::string id, std::vector<std::string> ignores) {
 	recommend.close();
 }
 
-int main()
+int main(int argc, char** argv)
 {
-	std::cout << "select moder. 1 - sp. 2 - dp." << std::endl;
-	std::cin >> mode;
-	if ((mode < 1) || (mode > 2)) {
-		std::cout << "type an actual number you fucking idiot ://";
+	constexpr auto&& usage = "{sp/dp} {table_to_ignore..}";
+	if (argc < 2)
+	{
+		std::cout << usage << '\n';
 		return 1;
 	}
-	std::cin.clear();
-	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-	std::vector<std::string> ignores;
-	std::string ignore;
-
-	std::cout << "what tables are we ignoring when making recommendations? each line - each table. type nothing to go to loading dataset." << std::endl;
-
-	while (true) {
-		std::getline(std::cin, ignore);
-
-		if (ignore.empty()) {
-			break;
-		}
-
-		ignores.push_back(ignore);
+	if (std::string_view moder{argv[1]}; moder == "sp")
+		mode = 1;
+	else if (moder == "dp")
+		mode = 2;
+	else
+	{
+		std::cout << usage << '\n';
+		return 1;
 	}
+	std::cout << "mode: " << mode << '\n';
+
+        std::vector<std::string> ignores;
+	for (const char* table : std::span{argv, static_cast<std::size_t>(argc)}.subspan(2))
+		ignores.emplace_back(table);
 
 	std::cout << "the ignores are: ";
 	for (std::string ignore : ignores) {
-		std::cout << ignore << " ";
+		std::cout << std::quoted(ignore) << " ";
 	}
-	std::cout << std::endl;
+	std::cout << '\n';
 
-	if (runFullIterations()) std::cout << "you suck at programming";
+	if (runFullIterations()) std::cout << "you suck at programming\n";
 	calcOtherIRScores((mode == 1) ? "input/tachi7K" : "input/tachi14K", "t");
 
 	for (int nigga : lr2irplayers) {
 		recommend(nigga, ignores);
 	}
-	for (std::string nigga : bokutachiplayers) {
+	for (const std::string& nigga : bokutachiplayers) {
 		recommendTachi(nigga, ignores);
 	}
 
