@@ -80,10 +80,7 @@ std::unordered_map<std::string, int> tableTable; // [table][folder] - amount of 
 int mode;
 
 static bool checkForTable(const std::string& table, Chart* chart) {
-	for (const auto& t : chart->tablesFolders) {
-		if (t.first == table) return true;
-	}
-	return false;
+	return chart->tablesFolders.contains(table);
 }
 
 static int clearConversion(const std::string& clearType) {
