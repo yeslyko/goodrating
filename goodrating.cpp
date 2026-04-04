@@ -89,7 +89,7 @@ static std::optional<T> from_chars(std::string_view s)
 static std::unordered_map<int, Player> playerTable;
 static std::unordered_map<std::string, Player> tachiPlayerTable;
 static std::unordered_map<std::string, Chart> songTable;
-static std::unordered_map<std::string, int> tableTable; // [table][folder] - amount of charts
+static std::unordered_map<std::string, std::unordered_map<int, int>> tableTable; // [table][folder] - amount of charts
 
 static int mode;
 
@@ -452,9 +452,9 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 static float calcFailWeight(const Player& player, const Chart& chart) {
 	float failWeight = 0;
 
-	for (const auto& t : chart.tablesFolders) {
-		const auto table_and_level = t.first + std::to_string(t.second);
-		int chartCount = tableTable.find(table_and_level)->second;
+	for (const auto& [table, level] : chart.tablesFolders) {
+		const auto table_and_level = table + std::to_string(level);
+		int chartCount = tableTable.at(table).at(level);
 		int playCount = player.completionList.find(table_and_level)->second;
 		failWeight = std::max(failWeight, static_cast<float>(playCount) / static_cast<float>(chartCount));
 	}
@@ -550,19 +550,9 @@ static void countFolderCompletions() {
 }
 
 static void countChartCount() {
-	for (const auto& c : songTable) {
-		for (const auto& t : c.second.tablesFolders) {
-			std::string tableName = t.first;
-			int tableLevel = t.second;
-
-			std::string tableFolder = tableName + std::to_string(tableLevel);
-
-			if (auto it = tableTable.find(tableFolder); it != tableTable.end()) {
-				it->second++;
-			}
-			else {
-				tableTable.emplace(tableFolder, 1);
-			}
+	for (const auto& [_md5, chart] : songTable) {
+		for (const auto& [name, level] : chart.tablesFolders) {
+			tableTable[name][level] += 1;
 		}
 	}
 }
