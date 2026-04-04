@@ -18,7 +18,7 @@
 
 struct Player {
 	std::string name;
-	int lr2id; // ..or sometimes tachi ID :P
+	int lr2id;
 	float rating;
 	std::unordered_map<std::string, int> clears; // md5, clear
 	std::string supplement;
