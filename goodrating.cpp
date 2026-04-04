@@ -15,7 +15,7 @@ struct Player {
 	std::string name;
 	int lr2id;
 	float rating;
-	std::vector<std::pair<std::string, int>> clears;
+	std::vector<std::pair<std::string, int>> clears; // md5, clear
 	std::string supplement;
 	std::unordered_map<std::string, int> completionList;
 };
@@ -286,11 +286,7 @@ bool chartReader(std::string filename, std::string table) {
 				playerTable.insert(std::make_pair(pid, player));
 			}
 			else {
-				bool flag = false;
-				for (int i = 0; i < got->second.clears.size(); i++) {
-					if (sid == got->second.clears[i].first) flag = true;
-				}
-				if (!flag) got->second.clears.emplace_back(sid, clearVal);
+				got->second.clears.emplace_back(sid, clearVal);
 			}
 
 			std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
@@ -359,6 +355,15 @@ bool chartReader(std::string filename, std::string table) {
 
 		}
 	}
+
+
+	// Remove duplicate clears
+	for (auto& [lr2id, player] : playerTable) {
+		std::ranges::sort(player.clears);
+		auto [first, last] = std::ranges::unique(player.clears);
+		player.clears.erase(first, last);
+	}
+
 	file.close();
 	return 0;
 }
