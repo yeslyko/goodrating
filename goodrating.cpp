@@ -214,44 +214,49 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 		while (std::getline(ss, line, ';')) {
 			switch (i) {
 			case 0:
-				try {
-					if (mode == 1) {
-						if (line == "ï¿½H" || line == "99" ||
+				if (mode == 1) {
+					if (line == "ï¿½H" || line == "99" ||
 							line == "?" || line == "???" ||
 							line == "査定中" || line == "999" || line == "X") {
-							folder = -1;
-						}
-						else if (line == "0-" || line == "-2" || line == "-1") {
-							folder = 0;
-						}
-						else if (line == "DELAY_BEGINNER") {
-							folder = 0;
-						}
-						else if (line == "DELAY_MASTER") {
-							folder = 13;
-						}
-						else if (line == "11+" || line == "12-" || line == "12+") {
-							folder = 12;
-						}
-						else {
+						folder = -1;
+					}
+					else if (line == "0-" || line == "-2" || line == "-1") {
+						folder = 0;
+					}
+					else if (line == "DELAY_BEGINNER") {
+						folder = 0;
+					}
+					else if (line == "DELAY_MASTER") {
+						folder = 13;
+					}
+					else if (line == "11+" || line == "12-" || line == "12+") {
+						folder = 12;
+					}
+					else {
+						try {
 							folder = from_chars<float>(line).value();
 						}
-						i++;
-						break;
-					}
-					else if (mode == 2) {
-						if (line == "�H" || line == "99" || line == "?") {
-							folder = -1;
+						catch (const std::exception& e) {
+							std::cout << line << ": " << e.what() << '\n';
 						}
-						else {
-							folder = from_chars<float>(line).value();
-						}
-						i++;
-						break;
 					}
+					i++;
+					break;
 				}
-				catch (const std::exception& e) {
-					std::cout << line << ": " << e.what() << '\n';
+				else if (mode == 2) {
+					if (line == "�H" || line == "99" || line == "?") {
+						folder = -1;
+					}
+					else {
+						try {
+							folder = from_chars<float>(line).value();
+						}
+						catch (const std::exception& e) {
+							std::cout << line << ": " << e.what() << '\n';
+						}
+					}
+					i++;
+					break;
 				}
 			case 1:
 				songname = line;
