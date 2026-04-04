@@ -127,12 +127,12 @@ void playerEstimator(Player* player) {
 	std::unordered_map<std::string, Chart>::iterator urg;
 
 	int clears = 0;
-	for (int i = 0; i < player->clears.size(); i++) {
-		if (player->clears[i].second > 0) {
+	for (auto & [md5, clear] : player->clears) {
+		if (clear > 0) {
 			clears++;
-			urg = songTable.find(player->clears[i].first);
+			urg = songTable.find(md5);
 			if (urg == songTable.end()) continue;
-			if (player->clears[i].second == 2) {
+			if (clear == 2) {
 				clearRatings.push_back(urg->second.hcrating);
 			}
 			else {
@@ -281,7 +281,6 @@ bool chartReader(std::string filename, std::string table) {
 				player.name = playername;
 				player.lr2id = pid;
 				player.rating = 0;
-				player.clears = std::vector<std::pair<std::string, int>>();
 				player.clears.emplace_back(sid, clearVal);
 				playerTable.insert(std::make_pair(pid, player));
 			}
@@ -479,11 +478,11 @@ std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
 void writePlayerData(Player* player, bool useSupplement) {
 	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player->supplement : std::to_string(player->lr2id)) + ".csv";
 	std::ofstream playerData(path);
-	for (auto b : player->clears) {
-		auto chartIter = songTable.find(b.first);
+	for (auto& [md5, clear] : player->clears) {
+		auto chartIter = songTable.find(md5);
 		if (chartIter == songTable.end()) continue;
 		Chart* charting = &chartIter->second;
-		playerData << chartIter->first << ";" << charting->name << ";" << charting->rating << ";" << charting->hcrating << ";" << adjRating((charting->rating + summer) * scaler, &folderNormalizer) << ";" << adjRating((charting->hcrating + summer) * scaler, &folderNormalizer) << ";" << b.second << std::endl;
+		playerData << chartIter->first << ";" << charting->name << ";" << charting->rating << ";" << charting->hcrating << ";" << adjRating((charting->rating + summer) * scaler, &folderNormalizer) << ";" << adjRating((charting->hcrating + summer) * scaler, &folderNormalizer) << ";" << clear << std::endl;
 	}
 	std::cout << "wrote player data for " << (useSupplement ? player->supplement : std::to_string(player->lr2id)) << std::endl;
 	playerData.close();
@@ -519,9 +518,9 @@ float guessRating(Chart* chart) {
 void countFolderCompletions() {
 	for (auto& p : playerTable) {
 		Player* poland = &p.second;
-		for (auto clear : poland->clears) {
-			Chart* chart = &songTable.find(clear.first)->second;
-			for (auto table : chart->tablesFolders) {
+		for (const auto& [md5, _clear] : poland->clears) {
+			Chart* chart = &songTable.find(md5)->second;
+			for (const auto& table : chart->tablesFolders) {
 				std::string tableFolder = table.first + std::to_string(table.second);
 				if (poland->completionList.find(tableFolder) == poland->completionList.end()) {
 					poland->completionList.insert(std::make_pair(tableFolder, 1));
@@ -942,9 +941,9 @@ void recommendTachi(std::string id, std::vector<std::string> ignores) {
 		}
 		if (ignore) continue;
 		int cleartype = 0;
-		for (auto c : player->clears) {
-			if (c.first == s.first) {
-				cleartype = c.second;
+		for (const auto &[md5, clear] : player->clears) {
+			if (md5 == s.first) {
+				cleartype = clear;
 			}
 		}
 		float ep = clearProbability(player->rating, s.second.rating);
