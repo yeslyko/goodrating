@@ -1,4 +1,5 @@
-﻿#include <charconv>
+﻿#include <algorithm>
+#include <charconv>
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -146,11 +147,11 @@ static void playerEstimator(Player* player) {
 		return;
 	}
 
-	std::sort(clearRatings.begin(), clearRatings.end(), std::greater<float>());
+	std::ranges::sort(clearRatings, std::greater<float>());
 
 	//average of exponentially weighted top scores, this produces the result i want assuming a random score distribution therefore it is good
 	float rate = 0;
-	int size = std::min((int)clearRatings.size(), 50);
+	int size = std::min(static_cast<int>(clearRatings.size()), 50);
 	for (int j = 0; j < size; j++) {
 		rate += std::exp(clearRatings[j]);
 	}
@@ -158,7 +159,7 @@ static void playerEstimator(Player* player) {
 }
 
 //normalize ratings to fit folder ratings for tachi
-float adjRating(float rating, std::vector<std::pair<float, float>>* normalizer) {
+static float adjRating(float rating, std::vector<std::pair<float, float>>* normalizer) {
 	if (rating < normalizer->at(0).first) {
 		return rating + normalizer->at(0).second;
 	}
@@ -181,11 +182,11 @@ float adjRating(float rating, std::vector<std::pair<float, float>>* normalizer) 
 	return -999;
 }
 
-bool chartReader(std::string filename, std::string table) {
+static bool chartReader(const std::string& filename, const std::string& table) {
 	std::ifstream file(filename);
 	if (!file.is_open()) {
 		std::cerr << "deez nuts";
-		return 1;
+		return true;
 	}
 
 	std::string gotline;
@@ -274,7 +275,7 @@ bool chartReader(std::string filename, std::string table) {
 
 			int clearVal = clearConversion(cleartype);
 
-			std::unordered_map<int, Player>::iterator got = playerTable.find(pid);
+			auto got = playerTable.find(pid);
 			if (got == playerTable.end()) {
 				Player player;
 				player.name = playername;
@@ -289,7 +290,7 @@ bool chartReader(std::string filename, std::string table) {
 					got->second.clears.insert_or_assign(sid, clearVal);
 			}
 
-			std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
+			auto get = songTable.find(sid);
 			if (get == songTable.end()) {
 				Chart chart;
 				chart.name = songname;
@@ -358,7 +359,7 @@ bool chartReader(std::string filename, std::string table) {
 
 
 	file.close();
-	return 0;
+	return false;
 }
 
 static float scaler = 1.F;
@@ -380,23 +381,23 @@ static void calcImportantFolderAverages() {
 
 	float eep = 0;
 	int womp = 0;
-	for (auto charts = songTable.begin(); charts != songTable.end(); charts++) {
-		if (checkForTable(normal, &charts->second) && charts->second.tablesFolders.find(normal)->second == 1) {
-			eep += charts->second.rating;
+	for (auto & charts : songTable) {
+		if (checkForTable(normal, &charts.second) && charts.second.tablesFolders.find(normal)->second == 1) {
+			eep += charts.second.rating;
 			womp++;
 		}
 	}
-	summer = eep / (float)womp;
+	summer = eep / static_cast<float>(womp);
 
 	float wah = 0;
 	int glomp = 0;
-	for (auto charts = songTable.begin(); charts != songTable.end(); charts++) {
-		if (checkForTable(insane, &charts->second) && charts->second.tablesFolders.find(insane)->second == ((mode == 1) ? 25 : 13)) {
-			wah += charts->second.rating + summer;
+	for (auto & charts : songTable) {
+		if (checkForTable(insane, &charts.second) && charts.second.tablesFolders.find(insane)->second == ((mode == 1) ? 25 : 13)) {
+			wah += charts.second.rating + summer;
 			glomp++;
 		}
 	}
-	scaler = ((mode == 1) ? 36.5F : 24.5F) / (wah / (float)glomp);
+	scaler = ((mode == 1) ? 36.5F : 24.5F) / (wah / static_cast<float>(glomp));
 }
 
 static std::vector<std::pair<float, float>> folderNormalizer;
@@ -418,21 +419,21 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 	for (int i = 1; i < ((mode == 1) ? 37 : 25); i++) {
 		float flotsam = 0;
 		int count = 0;
-		for (auto charts = songTable.begin(); charts != songTable.end(); charts++) {
-			if (!(checkForTable(normal, &charts->second) || checkForTable(insane, &charts->second))) {
+		for (auto & charts : songTable) {
+			if (!(checkForTable(normal, &charts.second) || checkForTable(insane, &charts.second))) {
 				continue;
 			}
-			int folder = (charts->second.tablesFolders.find(normal) == charts->second.tablesFolders.end()) ? charts->second.tablesFolders.find(insane)->second : charts->second.tablesFolders.find(normal)->second; // :/
-			if (checkForTable(normal, &charts->second) && folder > 11) continue;
-			if (checkForTable(insane, &charts->second)) folder += 11;
+			int folder = (charts.second.tablesFolders.find(normal) == charts.second.tablesFolders.end()) ? charts.second.tablesFolders.find(insane)->second : charts.second.tablesFolders.find(normal)->second; // :/
+			if (checkForTable(normal, &charts.second) && folder > 11) continue;
+			if (checkForTable(insane, &charts.second)) folder += 11;
 			if (folder != i) {
 				continue;
 			}
-			flotsam += (charts->second.rating + summer) * scaler;
+			flotsam += (charts.second.rating + summer) * scaler;
 			count++;
 		}
-		float avg = flotsam / (float)count;
-		folderNormalizer->emplace_back(avg, ((float)i + 0.5F) - avg);
+		float avg = flotsam / static_cast<float>(count);
+		folderNormalizer->emplace_back(avg, (static_cast<float>(i) + 0.5F) - avg);
 	}
 }
 
@@ -443,7 +444,7 @@ static float calcFailWeight(Player* player, Chart* chart) {
 		const auto table_and_level = t.first + std::to_string(t.second);
 		int chartCount = tableTable.find(table_and_level)->second;
 		int playCount = player->completionList.find(table_and_level)->second;
-		failWeight = std::max(failWeight, (float)playCount / (float)chartCount);
+		failWeight = std::max(failWeight, static_cast<float>(playCount) / static_cast<float>(chartCount));
 	}
 
 	return failWeight;
@@ -454,7 +455,7 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
 	for (auto& c : songTable) {
 		std::string tableFolder = c.second.tablesFolders.begin()->first + std::to_string(c.second.tablesFolders.begin()->second); //fix this later =))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
-		std::unordered_map<std::string, std::pair<int, float>>::iterator founder = tableAverages.find(tableFolder);
+		auto founder = tableAverages.find(tableFolder);
 		if (founder != tableAverages.end()) {
 			founder->second.first++;
 			founder->second.second += c.second.rating;
@@ -464,7 +465,7 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 		}
 	}
 	for (auto& folder : tableAverages) {
-		folder.second.second /= (float)folder.second.first;
+		folder.second.second /= static_cast<float>(folder.second.first);
 	}
 	return tableAverages;
 }
@@ -532,8 +533,8 @@ static void countFolderCompletions() {
 }
 
 static void countChartCount() {
-	for (auto c : songTable) {
-		for (auto t : c.second.tablesFolders) {
+	for (const auto& c : songTable) {
+		for (const auto& t : c.second.tablesFolders) {
 			std::string tableName = t.first;
 			int tableLevel = t.second;
 
@@ -554,7 +555,7 @@ static bool runFullIterations() {
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 		std::string stem = std::filesystem::path(dirEntry).stem().string();
 
-		if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return 1;
+		if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
 		std::cout << stem << " table loaded" << '\n';
 	}
 
@@ -608,8 +609,8 @@ static bool runFullIterations() {
 			playerPtrs.push_back(&kv.second);
 		}
 #pragma omp parallel for schedule(static)
-		for (int i = 0; i < static_cast<int>(playerPtrs.size()); ++i) {
-			playerEstimator(playerPtrs[i]);
+		for (auto & playerPtr : playerPtrs) {
+			playerEstimator(playerPtr);
 		}
 		if (firstRun) {
 			for (auto& g : songTable) {
@@ -699,7 +700,7 @@ static bool runFullIterations() {
 			}
 		}
 
-		ecMean /= (float)totalCharts;
+		ecMean /= static_cast<float>(totalCharts);
 		ecSigma = 0;
 
 		//run hc ratings for each file
@@ -736,7 +737,7 @@ static bool runFullIterations() {
 					}
 				}
 
-				chart->cleardiffsd = std::sqrt(clearsd / (float)std::max(clearpc, 1));
+				chart->cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
 				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart->tablesFolders.begin()->first + std::to_string(chart->tablesFolders.begin()->second))->second.second,
 					chart->hcrating)) * fether;
 				sum /= totalRelevance;
@@ -753,7 +754,7 @@ static bool runFullIterations() {
 		iter--;
 
 		std::cout << "(" << helper - iter << "/" << helper << ") iterations completed..." << '\n';
-		std::cout << "x: " << ecMean << " - s: " << std::sqrt(ecSigma / (float)totalCharts) << " - " << ecMean - prevMean << ", " << std::sqrt(ecSigma / (float)totalCharts) - std::sqrt(prevSigma / (float)totalCharts) << '\n';
+		std::cout << "x: " << ecMean << " - s: " << std::sqrt(ecSigma / static_cast<float>(totalCharts)) << " - " << ecMean - prevMean << ", " << std::sqrt(ecSigma / static_cast<float>(totalCharts)) - std::sqrt(prevSigma / static_cast<float>(totalCharts)) << '\n';
 	}
 
 	auto iterend = std::chrono::high_resolution_clock::now();
@@ -800,11 +801,11 @@ static bool runFullIterations() {
 	for (auto a : playerTable) {
 		for (int n : lr2irplayers) {
 			if (a.first == n) {
-				writePlayerData(&a.second, 0);
+				writePlayerData(&a.second, false);
 			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 /* !!! UNDER CONSTRUCTION !!!
@@ -887,7 +888,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
 		for (std::string n : bokutachiplayers) {
 			if (n == player.supplement) {
-				writePlayerData(&player, 1);
+				writePlayerData(&player, true);
 			}
 		}
 	}
