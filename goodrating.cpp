@@ -616,7 +616,7 @@ bool runFullIterations() {
 			}
 			for (auto& nodata : songTable) {
 				bool flag = false;
-				for (auto s : removeList) {
+				for (const auto& s : removeList) {
 					if (nodata.first == s) {
 						flag = true;
 						break;
@@ -629,7 +629,7 @@ bool runFullIterations() {
 					}
 				}
 			}
-			for (auto r : removeList) {
+			for (const auto& r : removeList) {
 				songTable.erase(r);
 			}
 			for (auto p : playerPtrs) {
