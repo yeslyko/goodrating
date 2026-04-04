@@ -73,12 +73,12 @@ static constexpr auto&& cheatersList =
 	183696, //zionfan
 };
 
-std::unordered_map<int, Player> playerTable;
-std::unordered_map<std::string, Player> tachiPlayerTable;
-std::unordered_map<std::string, Chart> songTable;
-std::unordered_map<std::string, int> tableTable; // [table][folder] - amount of charts
+static std::unordered_map<int, Player> playerTable;
+static std::unordered_map<std::string, Player> tachiPlayerTable;
+static std::unordered_map<std::string, Chart> songTable;
+static std::unordered_map<std::string, int> tableTable; // [table][folder] - amount of charts
 
-int mode;
+static int mode;
 
 static bool checkForTable(const std::string& table, Chart* chart) {
 	return chart->tablesFolders.contains(table);
@@ -99,13 +99,13 @@ static float clearProbability(float pr, float cr) {
 }
 
 //measurement of distance between player and chart rating; high-rated players with fails on low-rated charts should not bring the ratings up although the inverse does apply
-float calcRelevance(float pr, float cr) {
+static float calcRelevance(float pr, float cr) {
 	float sigma = ((mode == 1) ? 1.F : 0.5F);
 	return -(0.5F * (std::erf((pr - cr) / (sqrt(2.F) * sigma)) - 1.F));
 	//return 1.F / (1.F + std::exp(std::pow(pr - cr, 2.F)));
 }
 
-float chartEstimator(float CR, float PR, int clear, int mode) {
+static float chartEstimator(float CR, float PR, int clear, int mode) {
 	switch (mode) {
 	case 0:
 		if (clear) clear = 1;
@@ -120,7 +120,7 @@ float chartEstimator(float CR, float PR, int clear, int mode) {
 	return clearProbability(PR, CR) - clear;
 }
 
-void playerEstimator(Player* player) {
+static void playerEstimator(Player* player) {
 	std::vector<float> clearRatings;
 	std::unordered_map<std::string, Chart>::iterator urg;
 
@@ -360,11 +360,11 @@ bool chartReader(std::string filename, std::string table) {
 	return 0;
 }
 
-float scaler = 1.F;
-float summer = 0.F;
+static float scaler = 1.F;
+static float summer = 0.F;
 
 //calc values for normalizing ratings to folders
-void calcImportantFolderAverages() {
+static void calcImportantFolderAverages() {
 	std::string normal;
 	std::string insane;
 
@@ -398,9 +398,9 @@ void calcImportantFolderAverages() {
 	scaler = ((mode == 1) ? 36.5F : 24.5F) / (wah / (float)glomp);
 }
 
-std::vector<std::pair<float, float>> folderNormalizer;
+static std::vector<std::pair<float, float>> folderNormalizer;
 
-void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalizer) {
+static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalizer) {
 	//add normalization constants for each folder
 	std::string normal;
 	std::string insane;
@@ -530,7 +530,7 @@ static void countFolderCompletions() {
 	}
 }
 
-void countChartCount() {
+static void countChartCount() {
 	for (auto c : songTable) {
 		for (auto t : c.second.tablesFolders) {
 			std::string tableName = t.first;
@@ -548,7 +548,7 @@ void countChartCount() {
 	}
 }
 
-bool runFullIterations() {
+static bool runFullIterations() {
 	std::cout << "loading scores..." << '\n';
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 		std::string stem = std::filesystem::path(dirEntry).stem().string();
