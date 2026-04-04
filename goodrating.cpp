@@ -864,7 +864,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 		playerEstimator(&player);
 		tachiPlayerTable.insert(std::make_pair(player.supplement, player));
 		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
-		for (std::string n : bokutachiplayers) {
+		for (auto&& n : bokutachiplayers) {
 			if (n == player.supplement) {
 				writePlayerData(&player, true);
 			}
@@ -966,11 +966,12 @@ int main(int argc, char** argv)
 	std::cout << "mode: " << mode << '\n';
 
         std::vector<std::string> ignores;
+	ignores.reserve(argc - 2);
 	for (const char* table : std::span{argv, static_cast<std::size_t>(argc)}.subspan(2))
 		ignores.emplace_back(table);
 
 	std::cout << "the ignores are: ";
-	for (std::string ignore : ignores) {
+	for (std::string_view ignore : ignores) {
 		std::cout << std::quoted(ignore) << " ";
 	}
 	std::cout << '\n';
