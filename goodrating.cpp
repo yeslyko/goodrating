@@ -30,7 +30,7 @@ struct Chart {
 	float cleardiffsd;
 };
 
-std::vector<int> lr2irplayers = {
+static constexpr auto&& lr2irplayers = {
 	85349, //cardinal
 	3906, //rag nihongo wakaranai
 	147174, //zyxwe
@@ -41,7 +41,7 @@ std::vector<int> lr2irplayers = {
 	4075, //cheater0133
 };
 
-std::vector<std::string> bokutachiplayers = {
+static constexpr auto&& bokutachiplayers = {
 	"t49", //pupu
 	"t374", //snover
 	"t429", //zyxwe
@@ -53,7 +53,7 @@ std::vector<std::string> bokutachiplayers = {
 	"t467", //tokakitake
 };
 
-std::vector<int> cheatersList =
+static constexpr auto&& cheatersList =
 {
 	122738, //JADONG_GOD
 	114328, //JADONG
