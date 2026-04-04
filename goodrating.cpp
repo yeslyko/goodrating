@@ -1,4 +1,5 @@
-﻿#include <iostream>
+﻿#include <charconv>
+#include <iostream>
 #include <fstream>
 #include <set>
 #include <string>
@@ -560,8 +561,10 @@ static bool runFullIterations() {
 	countFolderCompletions();
 	countChartCount();
 
-	//amount of iterations
-	int iter = 100;
+	int iter = 100; // amount of iterations
+	if (const char* my_iter_count = getenv("MY_ITER_COUNT")) { // poop
+		std::from_chars(my_iter_count, my_iter_count + std::string_view(my_iter_count).size(), iter);
+	}
 	int helper = iter;
 	//nudge size per iteration
 	float scale = 0.2F;
