@@ -849,6 +849,8 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 
 	players << "rating;adjRating;id;name\n";
 
+	std::stringstream ss;
+
 	std::string line;
 	std::string md5;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
@@ -861,7 +863,8 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 		player.name = nut;
 		while (std::getline(tachiPlayer, nut)) {
 			try {
-				std::stringstream ss(nut);
+				ss.clear();
+				ss << nut;
 				line.clear();
 				md5.clear();
 				std::getline(ss, line, ',');
