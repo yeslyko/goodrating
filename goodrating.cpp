@@ -849,6 +849,8 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 		return;
 	}
 
+	players << "rating;adjRating;id;name\n";
+
 	std::string line;
 	std::string md5;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
