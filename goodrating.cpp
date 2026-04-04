@@ -15,7 +15,7 @@ struct Player {
 	std::string name;
 	int lr2id;
 	float rating;
-	std::vector<std::pair<std::string, int>> clears; // md5, clear
+	std::unordered_map<std::string, int> clears; // md5, clear
 	std::string supplement;
 	std::unordered_map<std::string, int> completionList;
 };
@@ -281,11 +281,13 @@ bool chartReader(std::string filename, std::string table) {
 				player.name = playername;
 				player.lr2id = pid;
 				player.rating = 0;
-				player.clears.emplace_back(sid, clearVal);
+				player.clears.insert_or_assign(sid, clearVal);
 				playerTable.insert(std::make_pair(pid, player));
 			}
 			else {
-				got->second.clears.emplace_back(sid, clearVal);
+				auto clear = got->second.clears.find(sid);
+				if (clear == got->second.clears.end() || clear->second < clearVal)
+					got->second.clears.insert_or_assign(sid, clearVal);
 			}
 
 			std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
@@ -355,13 +357,6 @@ bool chartReader(std::string filename, std::string table) {
 		}
 	}
 
-
-	// Remove duplicate clears
-	for (auto& [lr2id, player] : playerTable) {
-		std::ranges::sort(player.clears);
-		auto [first, last] = std::ranges::unique(player.clears);
-		player.clears.erase(first, last);
-	}
 
 	file.close();
 	return 0;
@@ -871,7 +866,7 @@ void calcOtherIRScores(std::string path, std::string supplement) {
 					std::getline(ss, line, ',');
 					cleartype = std::stoi(line);
 					if (songTable.find(md5) == songTable.end()) continue;
-					player.clears.emplace_back(md5, cleartype);
+					player.clears.insert_or_assign(md5, cleartype);
 				}
 				catch (...) {
 					std::cout << "code sucks" << std::endl;
