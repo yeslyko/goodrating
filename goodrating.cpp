@@ -270,91 +270,93 @@ bool chartReader(std::string filename, std::string table) {
 				if (pid == id) cheater = true;
 			}
 
-			if ((i == 0) && !cheater) {
-				int clearVal = clearConversion(cleartype);
+			if (i != 0 || cheater)
+				continue;
 
-				std::unordered_map<int, Player>::iterator got = playerTable.find(pid);
-				if (got == playerTable.end()) {
-					Player player;
-					player.name = playername;
-					player.lr2id = pid;
-					player.rating = 0;
-					player.clears = std::vector<std::pair<std::string, int>>();
-					player.clears.emplace_back(sid, clearVal);
-					playerTable.insert(std::make_pair(pid, player));
-				}
-				else {
-					bool flag = false;
-					for (int i = 0; i < got->second.clears.size(); i++) {
-						if (sid == got->second.clears[i].first) flag = true;
-					}
-					if (!flag) got->second.clears.emplace_back(sid, clearVal);
-				}
+			int clearVal = clearConversion(cleartype);
 
-				std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
-				if (get == songTable.end()) {
-					Chart chart;
-					chart.name = songname;
-					chart.tablesFolders.insert(std::make_pair(table, folder));
-					chart.rating = -1;
-					if (mode == 1) {
-						if (table == "spnormal" ||
-							table == "spnormaltwo") {
-							chart.rating = folder + 0.5F;
-						}
-						if (table == "spinsane" ||
-							table == "spinsanetwo") {
-							chart.rating = folder + 11.5F;
-						}
-						if (table == "spsatellite" ||
-							table == "sparmshougakkou") {
-							chart.rating = folder * 1.6F + 11.5F;
-						}
-						if (table == "spln" ||
-							table == "spluminous") {
-							chart.rating = folder * 0.9F + 11.5F;
-						}
-						if (table == "spstella") {
-							chart.rating = folder * 0.6F + 31.5F;
-						}
-						if (table == "spoverjoy" ||
-							table == "spgachimijoy") {
-							chart.rating = folder + 31.5F;
-						}
-						if (table == "spdystopia") {
-							chart.rating = folder * 0.5F + 35.5F;
-						}
-					}
-					else if (mode == 2) {
-						if (table == "delta") {
-							chart.rating = folder + 0.5F;
-						}
-						if (table == "insane" || table == "satellite") {
-							chart.rating = folder + 11.5F;
-						}
-					}
-					/*
-					if (table == "overjoy" || table == "stella") {
-						chart.rating = 23.5F;
-					}
-					if (folder == -1) {
-						if (table == "overjoy") chart.rating = 23.5F;
-						if (table == "insane") chart.rating = 16.5F;
-						if (table == "delta") chart.rating = 6.5F;
-					}
-					*/
-					chart.hcrating = chart.rating;
-					chart.scores = std::vector<std::pair<int, int>>();
-					chart.scores.emplace_back(pid, clearVal);
-					chart.playcount = 1;
-					songTable.insert(std::make_pair(sid, chart));
-				}
-				else {
-					if (!(checkForTable(table, &get->second))) get->second.tablesFolders.insert(std::make_pair(table, folder));
-					get->second.scores.emplace_back(pid, clearVal);
-					get->second.playcount++;
-				}
+			std::unordered_map<int, Player>::iterator got = playerTable.find(pid);
+			if (got == playerTable.end()) {
+				Player player;
+				player.name = playername;
+				player.lr2id = pid;
+				player.rating = 0;
+				player.clears = std::vector<std::pair<std::string, int>>();
+				player.clears.emplace_back(sid, clearVal);
+				playerTable.insert(std::make_pair(pid, player));
 			}
+			else {
+				bool flag = false;
+				for (int i = 0; i < got->second.clears.size(); i++) {
+					if (sid == got->second.clears[i].first) flag = true;
+				}
+				if (!flag) got->second.clears.emplace_back(sid, clearVal);
+			}
+
+			std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
+			if (get == songTable.end()) {
+				Chart chart;
+				chart.name = songname;
+				chart.tablesFolders.insert(std::make_pair(table, folder));
+				chart.rating = -1;
+				if (mode == 1) {
+					if (table == "spnormal" ||
+							table == "spnormaltwo") {
+						chart.rating = folder + 0.5F;
+					}
+					if (table == "spinsane" ||
+							table == "spinsanetwo") {
+						chart.rating = folder + 11.5F;
+					}
+					if (table == "spsatellite" ||
+							table == "sparmshougakkou") {
+						chart.rating = folder * 1.6F + 11.5F;
+					}
+					if (table == "spln" ||
+							table == "spluminous") {
+						chart.rating = folder * 0.9F + 11.5F;
+					}
+					if (table == "spstella") {
+						chart.rating = folder * 0.6F + 31.5F;
+					}
+					if (table == "spoverjoy" ||
+							table == "spgachimijoy") {
+						chart.rating = folder + 31.5F;
+					}
+					if (table == "spdystopia") {
+						chart.rating = folder * 0.5F + 35.5F;
+					}
+				}
+				else if (mode == 2) {
+					if (table == "delta") {
+						chart.rating = folder + 0.5F;
+					}
+					if (table == "insane" || table == "satellite") {
+						chart.rating = folder + 11.5F;
+					}
+				}
+				/*
+				   if (table == "overjoy" || table == "stella") {
+				   chart.rating = 23.5F;
+				   }
+				   if (folder == -1) {
+				   if (table == "overjoy") chart.rating = 23.5F;
+				   if (table == "insane") chart.rating = 16.5F;
+				   if (table == "delta") chart.rating = 6.5F;
+				   }
+				   */
+				chart.hcrating = chart.rating;
+				chart.scores = std::vector<std::pair<int, int>>();
+				chart.scores.emplace_back(pid, clearVal);
+				chart.playcount = 1;
+				songTable.insert(std::make_pair(sid, chart));
+			}
+			else {
+				if (!(checkForTable(table, &get->second))) get->second.tablesFolders.insert(std::make_pair(table, folder));
+				get->second.scores.emplace_back(pid, clearVal);
+				get->second.playcount++;
+			}
+
 		}
 	}
 	file.close();
