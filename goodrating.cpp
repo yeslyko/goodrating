@@ -570,8 +570,8 @@ static bool runFullIterations() {
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 		std::string stem = std::filesystem::path(dirEntry).stem().string();
 
+		std::cout << "loading table " << stem << '\n';
 		if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
-		std::cout << stem << " table loaded" << '\n';
 	}
 
 	countFolderCompletions();
