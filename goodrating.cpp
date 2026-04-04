@@ -297,7 +297,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				player.lr2id = pid;
 				player.rating = 0;
 				player.clears.insert_or_assign(sid, clearVal);
-				playerTable.insert(std::make_pair(pid, player));
+				playerTable.emplace(pid, player);
 			}
 			else {
 				auto clear = got->second.clears.find(sid);
@@ -309,7 +309,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 			if (get == songTable.end()) {
 				Chart chart;
 				chart.name = songname;
-				chart.tablesFolders.insert(std::make_pair(table, folder));
+				chart.tablesFolders.emplace(table, folder);
 				chart.rating = -1;
 				if (mode == 1) {
 					if (table == "spnormal" ||
@@ -361,10 +361,10 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				chart.scores = std::vector<std::pair<int, int>>();
 				chart.scores.emplace_back(pid, clearVal);
 				chart.playcount = 1;
-				songTable.insert(std::make_pair(sid, chart));
+				songTable.emplace(sid, chart);
 			}
 			else {
-				if (!(checkForTable(table, &get->second))) get->second.tablesFolders.insert(std::make_pair(table, folder));
+				if (!(checkForTable(table, &get->second))) get->second.tablesFolders.emplace(table, folder);
 				get->second.scores.emplace_back(pid, clearVal);
 				get->second.playcount++;
 			}
@@ -476,7 +476,7 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 			founder->second.second += c.second.rating;
 		}
 		else {
-			tableAverages.insert(std::make_pair(tableFolder, std::make_pair(1, c.second.rating)));
+			tableAverages.emplace(tableFolder, std::make_pair(1, c.second.rating));
 		}
 	}
 	for (auto& folder : tableAverages) {
@@ -541,7 +541,7 @@ static void countFolderCompletions() {
 			for (const auto& table : chart->tablesFolders) {
 				std::string tableFolder = table.first + std::to_string(table.second);
 				if (poland->completionList.find(tableFolder) == poland->completionList.end()) {
-					poland->completionList.insert(std::make_pair(tableFolder, 1));
+					poland->completionList.emplace(tableFolder, 1);
 				}
 				else {
 					poland->completionList.find(tableFolder)->second++;
@@ -560,7 +560,7 @@ static void countChartCount() {
 			std::string tableFolder = tableName + std::to_string(tableLevel);
 
 			if (tableTable.find(tableFolder) == tableTable.end()) {
-				tableTable.insert(std::make_pair(tableFolder, 1));
+				tableTable.emplace(tableFolder, 1);
 			}
 			else {
 				tableTable.find(tableFolder)->second++;
@@ -879,7 +879,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 			}
 		}
 		playerEstimator(&player);
-		tachiPlayerTable.insert(std::make_pair(player.supplement, player));
+		tachiPlayerTable.emplace(player.supplement, player);
 		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
 		for (auto&& n : bokutachiplayers) {
 			if (n == player.supplement) {
