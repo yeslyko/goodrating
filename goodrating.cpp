@@ -280,7 +280,7 @@ bool chartReader(std::string filename, std::string table) {
 					player.lr2id = pid;
 					player.rating = 0;
 					player.clears = std::vector<std::pair<std::string, int>>();
-					player.clears.push_back(std::make_pair(sid, clearVal));
+					player.clears.emplace_back(sid, clearVal);
 					playerTable.insert(std::make_pair(pid, player));
 				}
 				else {
@@ -288,7 +288,7 @@ bool chartReader(std::string filename, std::string table) {
 					for (int i = 0; i < got->second.clears.size(); i++) {
 						if (sid == got->second.clears[i].first) flag = true;
 					}
-					if (!flag) got->second.clears.push_back(std::make_pair(sid, clearVal));
+					if (!flag) got->second.clears.emplace_back(sid, clearVal);
 				}
 
 				std::unordered_map<std::string, Chart>::iterator get = songTable.find(sid);
@@ -345,13 +345,13 @@ bool chartReader(std::string filename, std::string table) {
 					*/
 					chart.hcrating = chart.rating;
 					chart.scores = std::vector<std::pair<int, int>>();
-					chart.scores.push_back(std::make_pair(pid, clearVal));
+					chart.scores.emplace_back(pid, clearVal);
 					chart.playcount = 1;
 					songTable.insert(std::make_pair(sid, chart));
 				}
 				else {
 					if (!(checkForTable(table, &get->second))) get->second.tablesFolders.insert(std::make_pair(table, folder));
-					get->second.scores.push_back(std::make_pair(pid, clearVal));
+					get->second.scores.emplace_back(pid, clearVal);
 					get->second.playcount++;
 				}
 			}
@@ -432,7 +432,7 @@ void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalize
 			count++;
 		}
 		float avg = flotsam / (float)count;
-		folderNormalizer->push_back(std::make_pair(avg, ((float)i + 0.5F) - avg));
+		folderNormalizer->emplace_back(avg, ((float)i + 0.5F) - avg);
 	}
 }
 
@@ -865,7 +865,7 @@ void calcOtherIRScores(std::string path, std::string supplement) {
 					std::getline(ss, line, ',');
 					cleartype = std::stoi(line);
 					if (songTable.find(md5) == songTable.end()) continue;
-					player.clears.push_back(std::make_pair(md5, cleartype));
+					player.clears.emplace_back(md5, cleartype);
 				}
 				catch (...) {
 					std::cout << "code sucks" << std::endl;
