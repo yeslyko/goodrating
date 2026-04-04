@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
 #include <math.h>
 #include <algorithm>
@@ -74,6 +75,15 @@ static constexpr auto&& cheatersList =
 	111571, //AiLee
 	183696, //zionfan
 };
+
+template<typename T>
+static std::optional<T> from_chars(std::string_view s)
+{
+	T out;
+	if (auto ec = std::from_chars(s.data(), s.data() + s.size(), out); ec.ec != std::errc{})
+		return std::nullopt;
+	return {out};
+}
 
 static std::unordered_map<int, Player> playerTable;
 static std::unordered_map<std::string, Player> tachiPlayerTable;
@@ -224,7 +234,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							folder = 12;
 						}
 						else {
-							folder = std::stof(line);
+							folder = from_chars<float>(line).value();
 						}
 						i++;
 						break;
@@ -234,14 +244,14 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							folder = -1;
 						}
 						else {
-							folder = std::stof(line);
+							folder = from_chars<float>(line).value();
 						}
 						i++;
 						break;
 					}
 				}
-				catch (...) {
-					std::cout << line << '\n';
+				catch (const std::exception& e) {
+					std::cout << line << ": " << e.what() << '\n';
 				}
 			case 1:
 				songname = line;
@@ -252,7 +262,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				i++;
 				break;
 			case 3:
-				pid = std::stoi(line);
+				pid = from_chars<int>(line).value();
 				i++;
 				break;
 			case 4:
@@ -824,13 +834,13 @@ void loadSongs() {
 			Chart chart;
 			chart.table = lines[0];
 			try {
-				chart.folder = std::stoi(lines[1]);
+				chart.folder = from_chars<int>(lines[1]).value();
 			}
 			catch (...) {
 				chart.folder = -1;
 			}
-			chart.rating = std::stof(lines[2]);
-			chart.hcrating = std::stof(lines[3]);
+			chart.rating = from_chars<float>(lines[2]).value();
+			chart.hcrating = from_chars<float>(lines[3]).value();
 			chart.name = lines[7];
 			songTable.insert(std::make_pair(lines[8], chart));
 		}
@@ -870,11 +880,10 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 				std::stringstream ss(nut);
 				line.clear();
 				md5.clear();
-				int cleartype;
 				std::getline(ss, line, ',');
 				md5 = line;
 				std::getline(ss, line, ',');
-				cleartype = std::stoi(line);
+				int cleartype = from_chars<int>(line).value();
 				if (songTable.find(md5) == songTable.end()) continue;
 				player.clears.insert_or_assign(md5, cleartype);
 			}
