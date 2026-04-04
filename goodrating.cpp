@@ -449,7 +449,7 @@ static float calcFailWeight(Player* player, Chart* chart) {
 }
 
 //used for tethering ratings to the average of its folder
-std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
+static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
 	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
 	for (auto& c : songTable) {
 		std::string tableFolder = c.second.tablesFolders.begin()->first + std::to_string(c.second.tablesFolders.begin()->second); //fix this later =))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
@@ -468,20 +468,24 @@ std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
 	return tableAverages;
 }
 
-void writePlayerData(Player* player, bool useSupplement) {
+static void writePlayerData(Player* player, bool useSupplement) {
 	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player->supplement : std::to_string(player->lr2id)) + ".csv";
 	std::ofstream playerData(path);
+	playerData << "md5;chart name;rating;hcrating;adjRating;adjHcRating;clear.second" << '\n';
 	for (auto& [md5, clear] : player->clears) {
 		auto chartIter = songTable.find(md5);
 		if (chartIter == songTable.end()) continue;
 		Chart* charting = &chartIter->second;
-		playerData << chartIter->first << ";" << charting->name << ";" << charting->rating << ";" << charting->hcrating << ";" << adjRating((charting->rating + summer) * scaler, &folderNormalizer) << ";" << adjRating((charting->hcrating + summer) * scaler, &folderNormalizer) << ";" << clear << std::endl;
+		playerData << chartIter->first << ";" << charting->name << ";" << charting->rating << ";" <<
+			charting->hcrating << ";" << adjRating((charting->rating + summer) * scaler, &folderNormalizer)
+			<< ";" << adjRating((charting->hcrating + summer) * scaler, &folderNormalizer) << ";" << clear
+			<< '\n';
 	}
-	std::cout << "wrote player data for " << (useSupplement ? player->supplement : std::to_string(player->lr2id)) << std::endl;
+	std::cout << "wrote player data for " << (useSupplement ? player->supplement : std::to_string(player->lr2id)) << '\n';
 	playerData.close();
 }
 
-float guessRating(Chart* chart) {
+static float guessRating(Chart* chart) {
 	bool isCleared = false;
 	float minRating = 999.F;
 	float maxRating = -999.F;
@@ -753,38 +757,42 @@ bool runFullIterations() {
 
 	std::chrono::duration<double> s_double = iterend - iterstart;
 
-	std::cout << helper << " iterations completed in " << s_double.count() << " seconds." << std::endl;
+	std::cout << helper << " iterations completed in " << s_double.count() << " seconds.\n";
 
 	calcImportantFolderAverages();
 	calcFolderNormalizers(&folderNormalizer);
 
 	std::ofstream CRTable((mode == 1) ? "output/sp/charts.csv" : "output/dp/charts.csv");
-	std::ofstream PRTable((mode == 1) ? "output/sp/players.csv" : "output/dp/players.csv");
-	std::ofstream stats((mode == 1) ? "output/sp/stats.csv" : "output/dp/stats.csv");
-
-	for (auto charts = songTable.begin(); charts != songTable.end(); charts++) {
-		float adjEC = adjRating((charts->second.rating + summer) * scaler, &folderNormalizer);
-		float adjHC = adjRating((charts->second.hcrating + summer) * scaler, &folderNormalizer);
+	CRTable << "table;level3;rating;hcrating;adjEC;adjHC;cleardiffsd;name;md5\n";
+	for (auto & charts : songTable) {
+		float adjEC = adjRating((charts.second.rating + summer) * scaler, &folderNormalizer);
+		float adjHC = adjRating((charts.second.hcrating + summer) * scaler, &folderNormalizer);
 		std::string folderCheck;
-		if (charts->second.tablesFolders.begin()->second == -1) folderCheck = "?"; else folderCheck = std::to_string(charts->second.tablesFolders.begin()->second);
-		CRTable << charts->second.tablesFolders.begin()->first << ";" << folderCheck << ";" << charts->second.rating << ";" << charts->second.hcrating << ";" << adjEC << ";" << adjHC << ";" << charts->second.cleardiffsd << ";" << charts->second.name << ";" << charts->first << "\n";
+		if (charts.second.tablesFolders.begin()->second == -1) folderCheck = "?"; else folderCheck = std::to_string(charts.second.tablesFolders.begin()->second);
+		CRTable << charts.second.tablesFolders.begin()->first << ";" << folderCheck << ";" <<
+			charts.second.rating << ";" << charts.second.hcrating << ";" << adjEC << ";" << adjHC << ";" <<
+			charts.second.cleardiffsd << ";" << charts.second.name << ";" << charts.first << "\n";
 	}
 	CRTable.close();
 
-	for (auto players = playerTable.begin(); players != playerTable.end(); players++) {
-		if (players->second.rating == -999) continue;
-		float adjRate = adjRating((players->second.rating + summer) * scaler, &folderNormalizer);
-		PRTable << players->second.rating << ";" << adjRate << ";" << players->first << ";" << players->second.name << "\n";
+	std::ofstream PRTable((mode == 1) ? "output/sp/players.csv" : "output/dp/players.csv");
+	PRTable << "rating,adj-rate,lr2id,name\n";
+	for (auto & players : playerTable) {
+		if (players.second.rating == -999) continue;
+		float adjRate = adjRating((players.second.rating + summer) * scaler, &folderNormalizer);
+		PRTable << players.second.rating << ";" << adjRate << ";" << players.first << ";" << players.second.name << "\n";
 	}
 	PRTable.close();
 
-	stats << summer << ";" << scaler << std::endl;
-	for (auto a : folderNormalizer) {
-		stats << a.first << ";" << a.second << std::endl;
+	std::ofstream stats((mode == 1) ? "output/sp/stats.csv" : "output/dp/stats.csv");
+	stats << "summer;scaler\n";
+	stats << summer << ";" << scaler << '\n';
+	for (auto [summer, scaler] : folderNormalizer) {
+		stats << summer << ";" << scaler << '\n';
 	}
 	stats.close();
 
-	std::cout << "writing player data..." << std::endl;
+	std::cout << "writing player data...\n";
 
 	for (auto a : playerTable) {
 		for (int n : lr2irplayers) {
