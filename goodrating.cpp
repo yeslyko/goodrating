@@ -884,52 +884,51 @@ void calcOtherIRScores(std::string path, std::string supplement) {
 	}
 }
 
-void recommend(int id, std::vector<std::string> ignores) {
+static void recommend(int id, const std::vector<std::string>& ignores) {
 	if (playerTable.find(id) == playerTable.end()) return;
 	Player* player = &playerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
 
-	for (auto s : songTable) {
-		bool ignore = 0;
-		for (auto i : ignores) {
-			for (auto t : s.second.tablesFolders) {
+	for (const auto& s : songTable) {
+		bool ignore = false;
+		for (const auto& i : ignores) {
+			for (const auto& t : s.second.tablesFolders) {
 				if (t.first == i) ignore = true;
 			}
 		}
 		if (ignore) continue;
 		float ep = clearProbability(player->rating, s.second.rating);
 		float hp = clearProbability(player->rating, s.second.hcrating);
-		std::string sid = s.first;
 		int cleartype = 0;
 		for (auto c : s.second.scores) {
 			if (c.first == id) cleartype = c.second;
 		}
 		switch (cleartype) {
 		case 0:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY" << std::endl;
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD" << std::endl;
+			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
+			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		case 1:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD" << std::endl;
+			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
-		case 2:
+		default:
 			break;
 		}
 	}
 	recommend.close();
 }
 
-void recommendTachi(std::string id, std::vector<std::string> ignores) {
+static void recommendTachi(const std::string& id, const std::vector<std::string>& ignores) {
 	if (tachiPlayerTable.find(id) == tachiPlayerTable.end()) return;
 	Player* player = &tachiPlayerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
 
-	for (auto s : songTable) {
-		bool ignore = 0;
-		for (auto i : ignores) {
-			for (auto t : s.second.tablesFolders) {
+	for (const auto& s : songTable) {
+		bool ignore = false;
+		for (const auto& i : ignores) {
+			for (const auto& t : s.second.tablesFolders) {
 				if (t.first == i) ignore = true;
 			}
 		}
@@ -942,16 +941,16 @@ void recommendTachi(std::string id, std::vector<std::string> ignores) {
 		}
 		float ep = clearProbability(player->rating, s.second.rating);
 		float hp = clearProbability(player->rating, s.second.hcrating);
-		std::string sid = s.first;
+		const std::string& sid = s.first;
 		switch (cleartype) {
 		case 0:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY" << std::endl;
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD" << std::endl;
+			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
+			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		case 1:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD" << std::endl;
+			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
-		case 2:
+		default:
 			break;
 		}
 	}
