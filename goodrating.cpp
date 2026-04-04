@@ -507,7 +507,7 @@ float guessRating(Chart* chart) {
 	}
 }
 
-void countFolderCompletions() {
+static void countFolderCompletions() {
 	for (auto& p : playerTable) {
 		Player* poland = &p.second;
 		for (const auto& [md5, _clear] : poland->clears) {
