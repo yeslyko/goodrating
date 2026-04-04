@@ -22,7 +22,8 @@ struct Player {
 	float rating;
 	std::unordered_map<std::string, int> clears; // md5, clear
 	std::string supplement;
-	std::unordered_map<std::string, std::unordered_map<int, int>> completionList;
+	// PERF: vector performs better than unordered_map on the amount of levels tables usually have.
+	std::unordered_map<std::string, std::vector<std::pair<int, int>>> completionList;
 };
 
 struct Chart {
@@ -89,7 +90,9 @@ static std::optional<T> from_chars(std::string_view s)
 static std::unordered_map<int, Player> playerTable;
 static std::unordered_map<std::string, Player> tachiPlayerTable;
 static std::unordered_map<std::string, Chart> songTable;
-static std::unordered_map<std::string, std::unordered_map<int, int>> tableTable; // [table][folder] - amount of charts
+// [table][folder] - amount of charts
+// PERF: vector performs better than unordered_map on the amount of levels tables usually have.
+static std::unordered_map<std::string, std::vector<std::pair<int, int>>> tableTable;
 
 static int mode;
 
@@ -453,8 +456,8 @@ static float calcFailWeight(const Player& player, const Chart& chart) {
 	float failWeight = 0;
 
 	for (const auto& [table, level] : chart.tablesFolders) {
-		int chartCount = tableTable.at(table).at(level);
-		int playCount = player.completionList.at(table).at(level);
+		int chartCount = std::ranges::find(tableTable.at(table), level, &std::pair<int, int>::first)->second;
+		int playCount = std::ranges::find(player.completionList.at(table), level, &std::pair<int, int>::first)->second;
 		failWeight = std::max(failWeight, static_cast<float>(playCount) / static_cast<float>(chartCount));
 	}
 
@@ -533,7 +536,12 @@ static void countFolderCompletions() {
 	for (auto& [_id, player] : playerTable) {
 		for (const auto& [md5, _clear] : player.clears) {
 			for (const auto& [name, level] : songTable.at(md5).tablesFolders) {
-				player.completionList[name][level] += 1;
+				auto& l = player.completionList[name];
+				if (auto it = std::ranges::find(l, level, &std::pair<int, int>::first); it != std::end(l)) {
+					it->second += 1;
+				} else {
+					l.emplace_back(level, 1);
+				}
 			}
 		}
 	}
@@ -542,7 +550,12 @@ static void countFolderCompletions() {
 static void countChartCount() {
 	for (const auto& [_md5, chart] : songTable) {
 		for (const auto& [name, level] : chart.tablesFolders) {
-			tableTable[name][level] += 1;
+			auto& l = tableTable[name];
+			if (auto it = std::ranges::find(l, level, &std::pair<int, int>::first); it != std::end(l)) {
+				it->second += 1;
+			} else {
+				l.emplace_back(level, 1);
+			}
 		}
 	}
 }
