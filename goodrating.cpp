@@ -584,10 +584,6 @@ bool runFullIterations() {
 	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
 
 	std::vector<Player*> playerPtrs;
-	playerPtrs.reserve(playerTable.size());
-	for (auto& kv : playerTable) {
-		playerPtrs.push_back(&kv.second);
-	}
 
 	//run estimation algorithm iterations
 	while (iter) {
@@ -598,6 +594,11 @@ bool runFullIterations() {
 		prevSigma = ecSigma;
 
 		totalCharts = 0;
+		playerPtrs.clear();
+		playerPtrs.reserve(playerTable.size());
+		for (auto& kv : playerTable) {
+			playerPtrs.push_back(&kv.second);
+		}
 #pragma omp parallel for schedule(static)
 		for (int i = 0; i < static_cast<int>(playerPtrs.size()); ++i) {
 			playerEstimator(playerPtrs[i]);
