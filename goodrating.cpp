@@ -1,5 +1,6 @@
 ﻿#include <iostream>
 #include <fstream>
+#include <set>
 #include <string>
 #include <sstream>
 #include <unordered_map>
@@ -577,7 +578,7 @@ bool runFullIterations() {
 	float prevMean, prevSigma;
 
 	std::vector<std::string> removeList;
-	std::vector<int> removePlayerList;
+	std::set<int> removePlayerList;
 
 	bool firstRun = true;
 
@@ -633,23 +634,15 @@ bool runFullIterations() {
 				songTable.erase(r);
 			}
 			for (auto p : playerPtrs) {
-				if (p->rating == -999) removePlayerList.push_back(p->lr2id);
+				if (p->rating == -999) removePlayerList.insert(p->lr2id);
 			}
 			for (auto noob : removePlayerList) {
 				playerTable.erase(noob);
 			}
-			for (auto& c : songTable) {
-				for (auto s = c.second.scores.begin(); s != c.second.scores.end();) {
-					bool flag = false;
-					for (auto d : removePlayerList) {
-						if (d == s->first) flag = true;
-					}
-					if (flag) {
-						s = c.second.scores.erase(s);
-						continue;
-					}
-					s++;
-				}
+			for (auto& [_md5, chart] : songTable) {
+				std::erase_if(chart.scores, [&removePlayerList](std::pair<int, int> player_and_clear){
+					return removePlayerList.contains(player_and_clear.first);
+					});
 			}
 			firstRun = false;
 			removeList.clear();
