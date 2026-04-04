@@ -978,11 +978,11 @@ int main(int argc, char** argv)
 	if (runFullIterations()) std::cout << "you suck at programming\n";
 	calcOtherIRScores((mode == 1) ? "input/tachi7K" : "input/tachi14K", "t");
 
-	for (int nigga : lr2irplayers) {
-		recommend(nigga, ignores);
+	for (int lr2id : lr2irplayers) {
+		recommend(lr2id, ignores);
 	}
-	for (const std::string& nigga : bokutachiplayers) {
-		recommendTachi(nigga, ignores);
+	for (const std::string& tachiid : bokutachiplayers) {
+		recommendTachi(tachiid, ignores);
 	}
 
 	/*for (auto a : tableTable) {
