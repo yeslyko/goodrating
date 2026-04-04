@@ -119,7 +119,7 @@ static float chartEstimator(float CR, float PR, int clear, int mode) {
 	}
 
 	//nudge uwu
-	return clearProbability(PR, CR) - clear;
+	return clearProbability(PR, CR) - static_cast<float>(clear);
 }
 
 static void playerEstimator(Player* player) {
@@ -155,7 +155,7 @@ static void playerEstimator(Player* player) {
 	for (int j = 0; j < size; j++) {
 		rate += std::exp(clearRatings[j]);
 	}
-	player->rating = std::max(std::log(rate / size), 0.F);
+	player->rating = std::max(std::log(rate / static_cast<float>(size)), 0.F);
 }
 
 //normalize ratings to fit folder ratings for tachi
@@ -192,7 +192,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 	std::string gotline;
 	std::string line;
 	int i = 0;
-	int folder;
+	float folder;
 	std::string songname;
 	std::string sid;
 	int pid = 0;
@@ -224,7 +224,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							folder = 12;
 						}
 						else {
-							folder = std::stoi(line);
+							folder = std::stof(line);
 						}
 						i++;
 						break;
@@ -234,7 +234,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							folder = -1;
 						}
 						else {
-							folder = std::stoi(line);
+							folder = std::stof(line);
 						}
 						i++;
 						break;
@@ -580,7 +580,7 @@ static bool runFullIterations() {
 
 	auto iterstart = std::chrono::high_resolution_clock::now();
 
-	int totalCharts = 0;
+	size_t totalCharts = 0;
 	float ecMean = 0;
 	float ecSigma = 0;
 	float prevMean, prevSigma;
