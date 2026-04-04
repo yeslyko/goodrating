@@ -92,8 +92,8 @@ static std::unordered_map<std::string, int> tableTable; // [table][folder] - amo
 
 static int mode;
 
-static bool checkForTable(const std::string& table, Chart* chart) {
-	return chart->tablesFolders.contains(table);
+static bool checkForTable(const std::string& table, const Chart& chart) {
+	return chart.tablesFolders.contains(table);
 }
 
 static int clearConversion(const std::string& clearType) {
@@ -132,12 +132,12 @@ static float chartEstimator(float CR, float PR, int clear, int mode) {
 	return clearProbability(PR, CR) - static_cast<float>(clear);
 }
 
-static void playerEstimator(Player* player) {
+static void playerEstimator(Player& player) {
 	std::vector<float> clearRatings;
 	std::unordered_map<std::string, Chart>::iterator urg;
 
 	int clears = 0;
-	for (auto & [md5, clear] : player->clears) {
+	for (auto & [md5, clear] : player.clears) {
 		if (clear > 0) {
 			clears++;
 			urg = songTable.find(md5);
@@ -153,7 +153,7 @@ static void playerEstimator(Player* player) {
 	}
 
 	if (clears == 0) {
-		player->rating = -999;
+		player.rating = -999;
 		return;
 	}
 
@@ -165,7 +165,7 @@ static void playerEstimator(Player* player) {
 	for (int j = 0; j < size; j++) {
 		rate += std::exp(clearRatings[j]);
 	}
-	player->rating = std::max(std::log(rate / static_cast<float>(size)), 0.F);
+	player.rating = std::max(std::log(rate / static_cast<float>(size)), 0.F);
 }
 
 //normalize ratings to fit folder ratings for tachi
@@ -364,7 +364,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				songTable.emplace(sid, chart);
 			}
 			else {
-				if (!(checkForTable(table, &get->second))) get->second.tablesFolders.emplace(table, folder);
+				if (!(checkForTable(table, get->second))) get->second.tablesFolders.emplace(table, folder);
 				get->second.scores.emplace_back(pid, clearVal);
 				get->second.playcount++;
 			}
@@ -397,7 +397,7 @@ static void calcImportantFolderAverages() {
 	float eep = 0;
 	int womp = 0;
 	for (auto & charts : songTable) {
-		if (checkForTable(normal, &charts.second) && charts.second.tablesFolders.find(normal)->second == 1) {
+		if (checkForTable(normal, charts.second) && charts.second.tablesFolders.find(normal)->second == 1) {
 			eep += charts.second.rating;
 			womp++;
 		}
@@ -407,7 +407,7 @@ static void calcImportantFolderAverages() {
 	float wah = 0;
 	int glomp = 0;
 	for (auto & charts : songTable) {
-		if (checkForTable(insane, &charts.second) && charts.second.tablesFolders.find(insane)->second == ((mode == 1) ? 25 : 13)) {
+		if (checkForTable(insane, charts.second) && charts.second.tablesFolders.find(insane)->second == ((mode == 1) ? 25 : 13)) {
 			wah += charts.second.rating + summer;
 			glomp++;
 		}
@@ -435,7 +435,7 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 		float flotsam = 0;
 		int count = 0;
 		for (auto & charts : songTable) {
-			if (!(checkForTable(normal, &charts.second) || checkForTable(insane, &charts.second))) {
+			if (!(checkForTable(normal, charts.second) || checkForTable(insane, charts.second))) {
 				continue;
 			}
 			int folder = [&]() {
@@ -444,8 +444,8 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 					return normal_it->second;
 				return charts.second.tablesFolders.at(insane);
 			}();
-			if (checkForTable(normal, &charts.second) && folder > 11) continue;
-			if (checkForTable(insane, &charts.second)) folder += 11;
+			if (checkForTable(normal, charts.second) && folder > 11) continue;
+			if (checkForTable(insane, charts.second)) folder += 11;
 			if (folder != i) {
 				continue;
 			}
@@ -457,13 +457,13 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 	}
 }
 
-static float calcFailWeight(Player* player, Chart* chart) {
+static float calcFailWeight(const Player& player, const Chart& chart) {
 	float failWeight = 0;
 
-	for (const auto& t : chart->tablesFolders) {
+	for (const auto& t : chart.tablesFolders) {
 		const auto table_and_level = t.first + std::to_string(t.second);
 		int chartCount = tableTable.find(table_and_level)->second;
-		int playCount = player->completionList.find(table_and_level)->second;
+		int playCount = player.completionList.find(table_and_level)->second;
 		failWeight = std::max(failWeight, static_cast<float>(playCount) / static_cast<float>(chartCount));
 	}
 
@@ -490,48 +490,48 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 	return tableAverages;
 }
 
-static void writePlayerData(Player* player, bool useSupplement) {
-	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player->supplement : std::to_string(player->lr2id)) + ".csv";
+static void writePlayerData(const Player& player, bool useSupplement) {
+	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player.supplement : std::to_string(player.lr2id)) + ".csv";
 	std::ofstream playerData(path);
 	if (!playerData.is_open()) {
 		std::cout << "!playerData.is_open()\n";
 		return;
 	}
 	playerData << "md5;chart name;rating;hcrating;adjRating;adjHcRating;clear.second" << '\n';
-	for (auto& [md5, clear] : player->clears) {
+	for (auto& [md5, clear] : player.clears) {
 		auto chartIter = songTable.find(md5);
 		if (chartIter == songTable.end()) continue;
-		Chart* charting = &chartIter->second;
-		playerData << chartIter->first << ";" << charting->name << ";" << charting->rating << ";" <<
-			charting->hcrating << ";" << adjRating((charting->rating + summer) * scaler, &folderNormalizer)
-			<< ";" << adjRating((charting->hcrating + summer) * scaler, &folderNormalizer) << ";" << clear
+		const Chart& charting = chartIter->second;
+		playerData << chartIter->first << ";" << charting.name << ";" << charting.rating << ";" <<
+			charting.hcrating << ";" << adjRating((charting.rating + summer) * scaler, &folderNormalizer)
+			<< ";" << adjRating((charting.hcrating + summer) * scaler, &folderNormalizer) << ";" << clear
 			<< '\n';
 	}
-	std::cout << "wrote player data for " << (useSupplement ? player->supplement : std::to_string(player->lr2id)) << '\n';
+	std::cout << "wrote player data for " << (useSupplement ? player.supplement : std::to_string(player.lr2id)) << '\n';
 	playerData.close();
 }
 
-static float guessRating(Chart* chart) {
+static float guessRating(Chart& chart) {
 	bool isCleared = false;
 	float minRating = 999.F;
 	float maxRating = -999.F;
-	for (auto s : chart->scores) {
+	for (auto s : chart.scores) {
 		if (s.second != 0) isCleared = true;
 	}
 	/*
-	if (chart->scores.size() < 5) {
+	if (chart.scores.size() < 5) {
 		if (!isCleared) return -999;
 	}
 	*/
 	if (isCleared) {
-		for (auto s : chart->scores) {
+		for (auto s : chart.scores) {
 			if (s.second == 0) continue;
 			minRating = std::min(playerTable.find(s.first)->second.rating, minRating);
 		}
 		return minRating;
 	}
 	else {
-		for (auto s : chart->scores) {
+		for (auto s : chart.scores) {
 			maxRating = std::max(playerTable.find(s.first)->second.rating, maxRating);
 		}
 		return maxRating;
@@ -540,17 +540,17 @@ static float guessRating(Chart* chart) {
 
 static void countFolderCompletions() {
 	for (auto& p : playerTable) {
-		Player* poland = &p.second;
-		for (const auto& [md5, _clear] : poland->clears) {
-			Chart* chart = &songTable.find(md5)->second;
-			for (const auto& table : chart->tablesFolders) {
+		Player& poland = p.second;
+		for (const auto& [md5, _clear] : poland.clears) {
+			const Chart& chart = songTable.find(md5)->second;
+			for (const auto& table : chart.tablesFolders) {
 				std::string tableFolder = table.first + std::to_string(table.second);
-				if (auto it = poland->completionList.find(tableFolder);
-						it != poland->completionList.end()) {
+				if (auto it = poland.completionList.find(tableFolder);
+						it != poland.completionList.end()) {
 					it->second++;
 				}
 				else {
-					poland->completionList.emplace(tableFolder, 1);
+					poland.completionList.emplace(tableFolder, 1);
 				}
 			}
 		}
@@ -635,12 +635,12 @@ static bool runFullIterations() {
 		}
 #pragma omp parallel for schedule(static)
 		for (auto & playerPtr : playerPtrs) {
-			playerEstimator(playerPtr);
+			playerEstimator(*playerPtr);
 		}
 		if (firstRun) {
 			for (auto& g : songTable) {
 				if (g.second.rating != -1) continue;
-				float rating = guessRating(&g.second);
+				float rating = guessRating(g.second);
 				if (rating == -999) {
 					removeList.push_back(g.first);
 					continue;
@@ -658,7 +658,7 @@ static bool runFullIterations() {
 				}
 				if (flag) continue;
 				if (nodata.second.scores.size() < 5) {
-					if (guessRating(&nodata.second) == -999) {
+					if (guessRating(nodata.second) == -999) {
 						removeList.push_back(nodata.first);
 					}
 				}
@@ -692,30 +692,30 @@ static bool runFullIterations() {
 #pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
-				Chart* chart = &it->second;
+				Chart& chart = it->second;
 				float sum = 0.f;
 				int pc = 0;
-				float cr = chart->rating;
+				float cr = chart.rating;
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (int k = 0; k < chart->scores.size(); k++) {
-					Player* player = &playerTable.find(chart->scores[k].first)->second;
-					float pr = player->rating;
+				for (int k = 0; k < chart.scores.size(); k++) {
+					const Player& player = playerTable.at(chart.scores[k].first);
+					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
-					relevance = calcRelevance(pr, cr) * ((chart->scores[k].second == 0) ? failWeight : 1);
-					if ((pr < cr) && (chart->scores[k].second > 0)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, chart->scores[k].second, 0) * relevance;
+					relevance = calcRelevance(pr, cr) * ((chart.scores[k].second == 0) ? failWeight : 1);
+					if ((pr < cr) && (chart.scores[k].second > 0)) relevance += cr - pr;
+					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 0) * relevance;
 					totalRelevance += relevance;
-					pc = chart->playcount;
+					pc = chart.playcount;
 				}
 
-				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart->tablesFolders.begin()->first + std::to_string(chart->tablesFolders.begin()->second))->second.second,
-					chart->rating)) * fether;
+				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart.tablesFolders.begin()->first + std::to_string(chart.tablesFolders.begin()->second))->second.second,
+					chart.rating)) * fether;
 				sum /= totalRelevance;
 				sum += bad;
-				chart->rating += sum;
-				localEcMean += chart->rating;
+				chart.rating += sum;
+				localEcMean += chart.rating;
 			}
 
 #pragma omp critical
@@ -736,39 +736,39 @@ static bool runFullIterations() {
 #pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
-				Chart* chart = &it->second;
+				Chart& chart = it->second;
 				float sum = 0.f;
 				int pc = 0;
-				float cr = chart->hcrating;
+				float cr = chart.hcrating;
 				float clearsd = 0.f;
 				int clearpc = 0;
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (int k = 0; k < chart->scores.size(); k++) {
-					Player* player = &playerTable.find(chart->scores[k].first)->second;
-					float pr = player->rating;
+				for (int k = 0; k < chart.scores.size(); k++) {
+					const Player& player = playerTable.find(chart.scores[k].first)->second;
+					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
-					relevance = calcRelevance(pr, cr) * ((chart->scores[k].second < 2) ? failWeight : 1);
-					if ((pr < cr) && (chart->scores[k].second == 2)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, chart->scores[k].second, 1) * relevance;
+					relevance = calcRelevance(pr, cr) * ((chart.scores[k].second < 2) ? failWeight : 1);
+					if ((pr < cr) && (chart.scores[k].second == 2)) relevance += cr - pr;
+					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 1) * relevance;
 					totalRelevance += relevance;
-					pc = chart->playcount;
+					pc = chart.playcount;
 
-					if ((((pr < cr) && (chart->scores[k].second > 0)) || ((pr >= cr) && (chart->scores[k].second == 0))) &&
+					if ((((pr < cr) && (chart.scores[k].second > 0)) || ((pr >= cr) && (chart.scores[k].second == 0))) &&
 						(std::abs(pr - cr) < 5.F)) {
 						clearpc++;
 						clearsd += std::pow((cr - pr), 2.F);
 					}
 				}
 
-				chart->cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
-				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart->tablesFolders.begin()->first + std::to_string(chart->tablesFolders.begin()->second))->second.second,
-					chart->hcrating)) * fether;
+				chart.cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
+				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart.tablesFolders.begin()->first + std::to_string(chart.tablesFolders.begin()->second))->second.second,
+					chart.hcrating)) * fether;
 				sum /= totalRelevance;
 				sum += bad;
-				chart->hcrating += sum;
-				localEcSigma += std::pow(chart->rating - ecMean, 2.F);
+				chart.hcrating += sum;
+				localEcSigma += std::pow(chart.rating - ecMean, 2.F);
 			}
 
 #pragma omp critical
@@ -835,10 +835,10 @@ static bool runFullIterations() {
 
 	std::cout << "writing player data...\n";
 
-	for (auto a : playerTable) {
+	for (const auto& a : playerTable) {
 		for (int n : lr2irplayers) {
 			if (a.first == n) {
-				writePlayerData(&a.second, false);
+				writePlayerData(a.second, false);
 			}
 		}
 	}
@@ -884,12 +884,12 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 				continue;
 			}
 		}
-		playerEstimator(&player);
+		playerEstimator(player);
 		tachiPlayerTable.emplace(player.supplement, player);
 		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
 		for (auto&& n : bokutachiplayers) {
 			if (n == player.supplement) {
-				writePlayerData(&player, true);
+				writePlayerData(player, true);
 			}
 		}
 	}
@@ -898,7 +898,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 static void recommend(int id, const std::vector<std::string>& ignores) {
 	auto p_it = playerTable.find(id);
 	if (p_it == playerTable.end()) return;
-	Player* player = &p_it->second;
+	Player& player = p_it->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
 	if (!recommend.is_open()) {
@@ -914,8 +914,8 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 			}
 		}
 		if (ignore) continue;
-		float ep = clearProbability(player->rating, s.second.rating);
-		float hp = clearProbability(player->rating, s.second.hcrating);
+		float ep = clearProbability(player.rating, s.second.rating);
+		float hp = clearProbability(player.rating, s.second.hcrating);
 		int cleartype = 0;
 		for (auto c : s.second.scores) {
 			if (c.first == id) cleartype = c.second;
@@ -938,7 +938,7 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 static void recommendTachi(const std::string& id, const std::vector<std::string>& ignores) {
 	auto p_it = tachiPlayerTable.find(id);
 	if (p_it == tachiPlayerTable.end()) return;
-	Player* player = &p_it->second;
+	const Player& player = p_it->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
 	if (!recommend.is_open()) {
@@ -955,13 +955,13 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 		}
 		if (ignore) continue;
 		int cleartype = 0;
-		for (const auto &[md5, clear] : player->clears) {
+		for (const auto &[md5, clear] : player.clears) {
 			if (md5 == s.first) {
 				cleartype = clear;
 			}
 		}
-		float ep = clearProbability(player->rating, s.second.rating);
-		float hp = clearProbability(player->rating, s.second.hcrating);
+		float ep = clearProbability(player.rating, s.second.rating);
+		float hp = clearProbability(player.rating, s.second.hcrating);
 		const std::string& sid = s.first;
 		switch (cleartype) {
 		case 0:
