@@ -889,7 +889,7 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 	Player* player = &playerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
-
+	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& s : songTable) {
 		bool ignore = false;
 		for (const auto& i : ignores) {
@@ -924,7 +924,7 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 	Player* player = &tachiPlayerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
-
+	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& s : songTable) {
 		bool ignore = false;
 		for (const auto& i : ignores) {
