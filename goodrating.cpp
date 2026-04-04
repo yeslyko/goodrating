@@ -277,12 +277,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				break;
 			}
 
-			bool cheater = false;
-			for (int id : cheatersList) {
-				if (pid == id) cheater = true;
-			}
-
-			if (i != 0 || cheater)
+			if (i != 0 || std::ranges::contains(cheatersList, pid))
 				continue;
 
 			int clearVal = clearConversion(cleartype);
