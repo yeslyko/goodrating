@@ -488,6 +488,10 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 static void writePlayerData(Player* player, bool useSupplement) {
 	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player->supplement : std::to_string(player->lr2id)) + ".csv";
 	std::ofstream playerData(path);
+	if (!playerData.is_open()) {
+		std::cout << "!playerData.is_open()\n";
+		return;
+	}
 	playerData << "md5;chart name;rating;hcrating;adjRating;adjHcRating;clear.second" << '\n';
 	for (auto& [md5, clear] : player->clears) {
 		auto chartIter = songTable.find(md5);
@@ -782,6 +786,10 @@ static bool runFullIterations() {
 	calcFolderNormalizers(&folderNormalizer);
 
 	std::ofstream CRTable((mode == 1) ? "output/sp/charts.csv" : "output/dp/charts.csv");
+	if (!CRTable.is_open()) {
+		std::cout << "!CRTable.is_open()\n";
+		return true;
+	}
 	CRTable << "table;level3;rating;hcrating;adjEC;adjHC;cleardiffsd;name;md5\n";
 	for (auto & charts : songTable) {
 		float adjEC = adjRating((charts.second.rating + summer) * scaler, &folderNormalizer);
@@ -795,6 +803,10 @@ static bool runFullIterations() {
 	CRTable.close();
 
 	std::ofstream PRTable((mode == 1) ? "output/sp/players.csv" : "output/dp/players.csv");
+	if (!PRTable.is_open()) {
+		std::cout << "!PRTable.is_open()\n";
+		return true;
+	}
 	PRTable << "rating,adj-rate,lr2id,name\n";
 	for (auto & players : playerTable) {
 		if (players.second.rating == -999) continue;
@@ -804,6 +816,10 @@ static bool runFullIterations() {
 	PRTable.close();
 
 	std::ofstream stats((mode == 1) ? "output/sp/stats.csv" : "output/dp/stats.csv");
+	if (!stats.is_open()) {
+		std::cout << "!stats.is_open()\n";
+		return true;
+	}
 	stats << "summer;scaler\n";
 	stats << summer << ";" << scaler << '\n';
 	for (auto [summer, scaler] : folderNormalizer) {
@@ -829,6 +845,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 	std::ofstream players((mode == 1) ? "output/sp/tachiPlayers.csv" : "output/dp/tachiPlayers.csv");
 
 	if (!players.is_open()) {
+		std::cout << "!players.is_open()\n";
 		return;
 	}
 
@@ -877,6 +894,10 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 	Player* player = &playerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
+	if (!recommend.is_open()) {
+		std::cout << "!recommend.is_open()\n";
+		return;
+	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& s : songTable) {
 		bool ignore = false;
@@ -912,6 +933,10 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 	Player* player = &tachiPlayerTable.find(id)->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
+	if (!recommend.is_open()) {
+		std::cout << "!recommend.is_open()\n";
+		return;
+	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& s : songTable) {
 		bool ignore = false;
