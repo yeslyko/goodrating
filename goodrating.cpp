@@ -434,13 +434,13 @@ void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalize
 	}
 }
 
-float calcFailWeight(Player* player, Chart* chart) {
+static float calcFailWeight(Player* player, Chart* chart) {
 	float failWeight = 0;
 
-	for (auto t : chart->tablesFolders) {
-		int chartCount = tableTable.find(t.first + std::to_string(t.second))->second;
-		int playCount = player->completionList.find(t.first + std::to_string(t.second))->second;
-
+	for (const auto& t : chart->tablesFolders) {
+		const auto table_and_level = t.first + std::to_string(t.second);
+		int chartCount = tableTable.find(table_and_level)->second;
+		int playCount = player->completionList.find(table_and_level)->second;
 		failWeight = std::max(failWeight, (float)playCount / (float)chartCount);
 	}
 
