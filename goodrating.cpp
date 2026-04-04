@@ -2,6 +2,7 @@
 #include <charconv>
 #include <iostream>
 #include <fstream>
+#include <ranges>
 #include <set>
 #include <string>
 #include <sstream>
@@ -200,7 +201,6 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 	}
 
 	std::string gotline;
-	std::string line;
 	int i = 0;
 	float folder;
 	std::string songname;
@@ -210,8 +210,8 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 	std::string cleartype;
 
 	while (std::getline(file, gotline)) {
-		std::stringstream ss(gotline);
-		while (std::getline(ss, line, ';')) {
+		for (auto&& line_ : std::views::split(gotline, ';')) {
+			const auto line = std::string_view{line_.begin(), line_.end()};
 			switch (i) {
 			case 0:
 				if (mode == 1) {
