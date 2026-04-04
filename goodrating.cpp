@@ -438,7 +438,12 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 			if (!(checkForTable(normal, &charts.second) || checkForTable(insane, &charts.second))) {
 				continue;
 			}
-			int folder = (charts.second.tablesFolders.find(normal) == charts.second.tablesFolders.end()) ? charts.second.tablesFolders.find(insane)->second : charts.second.tablesFolders.find(normal)->second; // :/
+			int folder = [&]() {
+				auto normal_it = charts.second.tablesFolders.find(normal);
+				if (normal_it != charts.second.tablesFolders.end())
+					return normal_it->second;
+				return charts.second.tablesFolders.at(insane);
+			}();
 			if (checkForTable(normal, &charts.second) && folder > 11) continue;
 			if (checkForTable(insane, &charts.second)) folder += 11;
 			if (folder != i) {
@@ -540,11 +545,12 @@ static void countFolderCompletions() {
 			Chart* chart = &songTable.find(md5)->second;
 			for (const auto& table : chart->tablesFolders) {
 				std::string tableFolder = table.first + std::to_string(table.second);
-				if (poland->completionList.find(tableFolder) == poland->completionList.end()) {
-					poland->completionList.emplace(tableFolder, 1);
+				if (auto it = poland->completionList.find(tableFolder);
+						it != poland->completionList.end()) {
+					it->second++;
 				}
 				else {
-					poland->completionList.find(tableFolder)->second++;
+					poland->completionList.emplace(tableFolder, 1);
 				}
 			}
 		}
@@ -559,11 +565,11 @@ static void countChartCount() {
 
 			std::string tableFolder = tableName + std::to_string(tableLevel);
 
-			if (tableTable.find(tableFolder) == tableTable.end()) {
-				tableTable.emplace(tableFolder, 1);
+			if (auto it = tableTable.find(tableFolder); it != tableTable.end()) {
+				it->second++;
 			}
 			else {
-				tableTable.find(tableFolder)->second++;
+				tableTable.emplace(tableFolder, 1);
 			}
 		}
 	}
@@ -870,7 +876,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 				md5 = line;
 				std::getline(ss, line, ',');
 				int cleartype = from_chars<int>(line).value();
-				if (songTable.find(md5) == songTable.end()) continue;
+				if (!songTable.contains(md5)) continue;
 				player.clears.insert_or_assign(md5, cleartype);
 			}
 			catch (const std::exception& e) {
@@ -890,8 +896,9 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 }
 
 static void recommend(int id, const std::vector<std::string>& ignores) {
-	if (playerTable.find(id) == playerTable.end()) return;
-	Player* player = &playerTable.find(id)->second;
+	auto p_it = playerTable.find(id);
+	if (p_it == playerTable.end()) return;
+	Player* player = &p_it->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
 	if (!recommend.is_open()) {
@@ -929,8 +936,9 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 }
 
 static void recommendTachi(const std::string& id, const std::vector<std::string>& ignores) {
-	if (tachiPlayerTable.find(id) == tachiPlayerTable.end()) return;
-	Player* player = &tachiPlayerTable.find(id)->second;
+	auto p_it = tachiPlayerTable.find(id);
+	if (p_it == tachiPlayerTable.end()) return;
+	Player* player = &p_it->second;
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
 	if (!recommend.is_open()) {
