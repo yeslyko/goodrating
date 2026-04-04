@@ -239,7 +239,7 @@ bool chartReader(std::string filename, std::string table) {
 					}
 				}
 				catch (...) {
-					std::cout << line << std::endl;
+					std::cout << line << '\n';
 				}
 			case 1:
 				songname = line;
@@ -549,12 +549,12 @@ void countChartCount() {
 }
 
 bool runFullIterations() {
-	std::cout << "loading scores..." << std::endl;
+	std::cout << "loading scores..." << '\n';
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 		std::string stem = std::filesystem::path(dirEntry).stem().string();
 
 		if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return 1;
-		std::cout << stem << " table loaded" << std::endl;
+		std::cout << stem << " table loaded" << '\n';
 	}
 
 	countFolderCompletions();
@@ -572,7 +572,7 @@ bool runFullIterations() {
 	//this just makes the mean more stable i don't know the consequences of this but the minimum player rating is 0 so don't let that happen too much :)
 	const float bad = 0.05F;
 
-	std::cout << "running iterations..." << std::endl;
+	std::cout << "running iterations..." << '\n';
 
 	auto iterstart = std::chrono::high_resolution_clock::now();
 
@@ -749,8 +749,8 @@ bool runFullIterations() {
 		}
 		iter--;
 
-		std::cout << "(" << helper - iter << "/" << helper << ") iterations completed..." << std::endl;
-		std::cout << "x: " << ecMean << " - s: " << std::sqrt(ecSigma / (float)totalCharts) << " - " << ecMean - prevMean << ", " << std::sqrt(ecSigma / (float)totalCharts) - std::sqrt(prevSigma / (float)totalCharts) << std::endl;
+		std::cout << "(" << helper - iter << "/" << helper << ") iterations completed..." << '\n';
+		std::cout << "x: " << ecMean << " - s: " << std::sqrt(ecSigma / (float)totalCharts) << " - " << ecMean - prevMean << ", " << std::sqrt(ecSigma / (float)totalCharts) - std::sqrt(prevSigma / (float)totalCharts) << '\n';
 	}
 
 	auto iterend = std::chrono::high_resolution_clock::now();
@@ -840,45 +840,49 @@ void loadSongs() {
 }
 !!! UNDER CONSTRUCTION !!! */
 
-void calcOtherIRScores(std::string path, std::string supplement) {
+static void calcOtherIRScores(const std::string& path, const std::string& supplement) {
 	// if (songTable.size() == 0) loadSongs();
 
 	std::ofstream players((mode == 1) ? "output/sp/tachiPlayers.csv" : "output/dp/tachiPlayers.csv");
 
-	if (players.is_open()) {
-		for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
-			std::ifstream tachiPlayer(dirEntry.path().string());
-			Player player;
-			std::filesystem::path path(dirEntry);
-			player.supplement = supplement + path.stem().string();
-			std::string nut;
-			std::getline(tachiPlayer, nut);
-			player.name = nut;
-			while (std::getline(tachiPlayer, nut)) {
-				try {
-					std::stringstream ss(nut);
-					std::string line;
-					std::string md5;
-					int cleartype;
-					std::getline(ss, line, ',');
-					md5 = line;
-					std::getline(ss, line, ',');
-					cleartype = std::stoi(line);
-					if (songTable.find(md5) == songTable.end()) continue;
-					player.clears.insert_or_assign(md5, cleartype);
-				}
-				catch (...) {
-					std::cout << "code sucks" << std::endl;
-					continue;
-				}
+	if (!players.is_open()) {
+		return;
+	}
+
+	std::string line;
+	std::string md5;
+	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
+		std::ifstream tachiPlayer(dirEntry.path().string());
+		Player player;
+		const auto& path = dirEntry.path();
+		player.supplement = supplement + path.stem().string();
+		std::string nut;
+		std::getline(tachiPlayer, nut);
+		player.name = nut;
+		while (std::getline(tachiPlayer, nut)) {
+			try {
+				std::stringstream ss(nut);
+				line.clear();
+				md5.clear();
+				int cleartype;
+				std::getline(ss, line, ',');
+				md5 = line;
+				std::getline(ss, line, ',');
+				cleartype = std::stoi(line);
+				if (songTable.find(md5) == songTable.end()) continue;
+				player.clears.insert_or_assign(md5, cleartype);
 			}
-			playerEstimator(&player);
-			tachiPlayerTable.insert(std::make_pair(player.supplement, player));
-			players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << std::endl;
-			for (std::string n : bokutachiplayers) {
-				if (n == player.supplement) {
-					writePlayerData(&player, 1);
-				}
+			catch (const std::exception& e) {
+				std::cout << "failed blah blah " << e.what() << '\n';
+				continue;
+			}
+		}
+		playerEstimator(&player);
+		tachiPlayerTable.insert(std::make_pair(player.supplement, player));
+		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
+		for (std::string n : bokutachiplayers) {
+			if (n == player.supplement) {
+				writePlayerData(&player, 1);
 			}
 		}
 	}
@@ -998,6 +1002,6 @@ int main(int argc, char** argv)
 	}
 
 	/*for (auto a : tableTable) {
-		std::cout << a.first << " - " << a.second << std::endl;
+		std::cout << a.first << " - " << a.second << '\n';
 	}*/
 }
