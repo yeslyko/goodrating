@@ -830,14 +830,12 @@ static bool runFullIterations() {
 	stats.close();
 
 	std::cout << "writing player data...\n";
-
-	for (const auto& a : playerTable) {
-		for (int n : lr2irplayers) {
-			if (a.first == n) {
-				writePlayerData(a.second, false);
-			}
+	for (const auto& [lr2id, player] : playerTable) {
+		if (std::ranges::contains(lr2irplayers, lr2id)) {
+			writePlayerData(player, false);
 		}
 	}
+
 	return false;
 }
 
