@@ -638,14 +638,8 @@ static bool runFullIterations() {
 				g.second.hcrating = rating;
 			}
 			for (auto& nodata : songTable) {
-				bool flag = false;
-				for (const auto& s : removeList) {
-					if (nodata.first == s) {
-						flag = true;
-						break;
-					}
-				}
-				if (flag) continue;
+				if (std::ranges::contains(removeList, nodata.first))
+					continue;
 				if (nodata.second.scores.size() < 5) {
 					if (guessRating(nodata.second) == -999) {
 						removeList.push_back(nodata.first);
@@ -830,9 +824,9 @@ static bool runFullIterations() {
 	stats.close();
 
 	std::cout << "writing player data...\n";
-	for (const auto& [lr2id, player] : playerTable) {
-		if (std::ranges::contains(lr2irplayers, lr2id)) {
-			writePlayerData(player, false);
+	for (int lr2id : lr2irplayers) {
+		if (auto player = playerTable.find(lr2id); player != playerTable.end()) {
+			writePlayerData(player->second, false);
 		}
 	}
 
@@ -891,10 +885,8 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 		playerEstimator(player);
 		tachiPlayerTable.emplace(player.supplement, player);
 		players << player.rating << ";" << adjRating((player.rating + summer) * scaler, &folderNormalizer) << ";" << player.supplement << ";" << player.name << '\n';
-		for (auto&& n : bokutachiplayers) {
-			if (n == player.supplement) {
-				writePlayerData(player, true);
-			}
+		if (std::ranges::contains(bokutachiplayers, player.supplement)) {
+			writePlayerData(player, true);
 		}
 	}
 }
@@ -918,19 +910,13 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& [sid, chart] : songTable) {
-		bool ignore = false;
-		for (const auto& i : ignores) {
-			for (const auto& t : chart.tablesFolders) {
-				if (t.first == i) ignore = true;
-			}
-		}
-		if (ignore) continue;
+               if (std::ranges::any_of(ignores, [&](const std::string& i) { return chart.tablesFolders.contains(i); }))
+                       continue;
 		float ep = clearProbability(player.rating, chart.rating);
 		float hp = clearProbability(player.rating, chart.hcrating);
 		int cleartype = 0;
-		for (auto c : chart.scores) {
-			if (c.first == id) cleartype = c.second;
-		}
+		if (auto it = std::ranges::find(chart.scores, id, &std::pair<int, int>::second); it != std::ranges::end(chart.scores))
+			cleartype = it->second;
 		switch (cleartype) {
 		case 0:
 			recommend << sid << ";" << chart.name << ";" << chart.rating << ";" << adjRating((chart.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
@@ -964,21 +950,13 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
 	for (const auto& [sid, chart] : songTable) {
-		bool ignore = false;
-		for (const auto& i : ignores) {
-			for (const auto& t : chart.tablesFolders) {
-				if (t.first == i) ignore = true;
-			}
-		}
-		if (ignore) continue;
-		int cleartype = 0;
-		for (const auto &[md5, clear] : player.clears) {
-			if (md5 == sid) {
-				cleartype = clear;
-			}
-		}
+               if (std::ranges::any_of(ignores, [&](const std::string& i) { return chart.tablesFolders.contains(i); }))
+                       continue;
 		float ep = clearProbability(player.rating, chart.rating);
 		float hp = clearProbability(player.rating, chart.hcrating);
+		int cleartype = 0;
+		if (auto it = player.clears.find(sid); it != player.clears.end())
+			cleartype = it->second;
 		switch (cleartype) {
 		case 0:
 			recommend << sid << ";" << chart.name << ";" << chart.rating << ";" << adjRating((chart.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
