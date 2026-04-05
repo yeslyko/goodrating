@@ -561,7 +561,7 @@ static void countChartCount() {
 
 static bool runFullIterations() {
 	std::cout << "loading scores..." << '\n';
-	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
+	for (const auto& dirEntry : std::filesystem::directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 		std::string stem = std::filesystem::path(dirEntry).stem().string();
 
 		std::cout << "loading table " << stem << '\n';
@@ -853,7 +853,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 
 	std::string line;
 	std::string md5;
-	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
+	for (const auto& dirEntry : std::filesystem::directory_iterator(path)) {
 		std::ifstream tachiPlayer(dirEntry.path().string());
 		Player player;
 		const auto& path = dirEntry.path();
