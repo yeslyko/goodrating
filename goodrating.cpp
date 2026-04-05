@@ -485,6 +485,12 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 }
 
 static void writePlayerData(const Player& player, bool useSupplement) {
+	std::error_code ec;
+	std::filesystem::create_directories(mode == 1 ? "output/sp/playerData" : "output/dp/playerData", ec);
+	if (ec) {
+		std::cout << "failed to create directory: " << ec.message() << '\n';
+		return;
+	}
 	std::string path = ((mode == 1) ? "output/sp/playerData/" : "output/dp/playerData/") + (useSupplement ? player.supplement : std::to_string(player.lr2id)) + ".csv";
 	std::ofstream playerData(path);
 	if (!playerData.is_open()) {
@@ -776,6 +782,13 @@ static bool runFullIterations() {
 	calcImportantFolderAverages();
 	calcFolderNormalizers(&folderNormalizer);
 
+	std::error_code ec;
+	std::filesystem::create_directories(mode == 1 ? "output/sp" : "output/dp", ec);
+	if (ec) {
+		std::cout << "failed to create directory: " << ec.message() << '\n';
+		return true;
+	}
+
 	std::ofstream CRTable((mode == 1) ? "output/sp/charts.csv" : "output/dp/charts.csv");
 	if (!CRTable.is_open()) {
 		std::cout << "!CRTable.is_open()\n";
@@ -833,6 +846,13 @@ static bool runFullIterations() {
 static void calcOtherIRScores(const std::string& path, const std::string& supplement) {
 	// if (songTable.size() == 0) loadSongs();
 
+	std::error_code ec;
+	std::filesystem::create_directories(mode == 1 ? "output/sp" : "output/dp", ec);
+	if (ec) {
+		std::cout << "failed to create directory: " << ec.message() << '\n';
+		return;
+	}
+
 	std::ofstream players((mode == 1) ? "output/sp/tachiPlayers.csv" : "output/dp/tachiPlayers.csv");
 
 	if (!players.is_open()) {
@@ -888,6 +908,13 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 	if (p_it == playerTable.end()) return;
 	Player& player = p_it->second;
 
+	std::error_code ec;
+	std::filesystem::create_directories(mode == 1 ? "output/sp/recommend" : "output/dp/recommend", ec);
+	if (ec) {
+		std::cout << "failed to create directory: " << ec.message() << '\n';
+		return;
+	}
+
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + std::to_string(id) + ".csv") : ("output/dp/recommend/" + std::to_string(id) + ".csv"));
 	if (!recommend.is_open()) {
 		std::cout << "!recommend.is_open()\n";
@@ -927,6 +954,13 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 	auto p_it = tachiPlayerTable.find(id);
 	if (p_it == tachiPlayerTable.end()) return;
 	const Player& player = p_it->second;
+
+	std::error_code ec;
+	std::filesystem::create_directories(mode == 1 ? "output/sp/recommend" : "output/dp/recommend", ec);
+	if (ec) {
+		std::cout << "failed to create directory: " << ec.message() << '\n';
+		return;
+	}
 
 	std::ofstream recommend((mode == 1) ? ("output/sp/recommend/" + id + ".csv") : ("output/dp/recommend/" + id + ".csv"));
 	if (!recommend.is_open()) {
