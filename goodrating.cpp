@@ -466,19 +466,14 @@ static float calcFailWeight(const Player& player, const Chart& chart) {
 //used for tethering ratings to the average of its folder
 static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
 	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
-	for (auto& c : songTable) {
-		std::string tableFolder = c.second.tablesFolders.begin()->first + std::to_string(c.second.tablesFolders.begin()->second); //fix this later =))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
-		auto founder = tableAverages.find(tableFolder);
-		if (founder != tableAverages.end()) {
-			founder->second.first++;
-			founder->second.second += c.second.rating;
-		}
-		else {
-			tableAverages.emplace(tableFolder, std::make_pair(1, c.second.rating));
-		}
+	for (auto& [_md5, chart] : songTable) {
+		const auto& [name, level] = *chart.tablesFolders.begin();
+		auto& [a, b] = tableAverages[name + std::to_string(level)];
+		a += 1;
+		b += chart.rating;
 	}
-	for (auto& folder : tableAverages) {
-		folder.second.second /= static_cast<float>(folder.second.first);
+	for (auto& [_k, averages] : tableAverages) {
+		averages.second /= static_cast<float>(averages.first);
 	}
 	return tableAverages;
 }
@@ -693,7 +688,8 @@ static bool runFullIterations() {
 					pc = chart.playcount;
 				}
 
-				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart.tablesFolders.begin()->first + std::to_string(chart.tablesFolders.begin()->second))->second.second,
+				const auto& [name, level] = *chart.tablesFolders.begin();
+				sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
 					chart.rating)) * fether;
 				sum /= totalRelevance;
 				sum += bad;
@@ -746,7 +742,8 @@ static bool runFullIterations() {
 				}
 
 				chart.cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
-				sum -= (1.F - 2.F * clearProbability(tableAverages.find(chart.tablesFolders.begin()->first + std::to_string(chart.tablesFolders.begin()->second))->second.second,
+				const auto& [name, level] = *chart.tablesFolders.begin();
+				sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
 					chart.hcrating)) * fether;
 				sum /= totalRelevance;
 				sum += bad;
