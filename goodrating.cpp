@@ -917,27 +917,27 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 		return;
 	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
-	for (const auto& s : songTable) {
+	for (const auto& [sid, chart] : songTable) {
 		bool ignore = false;
 		for (const auto& i : ignores) {
-			for (const auto& t : s.second.tablesFolders) {
+			for (const auto& t : chart.tablesFolders) {
 				if (t.first == i) ignore = true;
 			}
 		}
 		if (ignore) continue;
-		float ep = clearProbability(player.rating, s.second.rating);
-		float hp = clearProbability(player.rating, s.second.hcrating);
+		float ep = clearProbability(player.rating, chart.rating);
+		float hp = clearProbability(player.rating, chart.hcrating);
 		int cleartype = 0;
-		for (auto c : s.second.scores) {
+		for (auto c : chart.scores) {
 			if (c.first == id) cleartype = c.second;
 		}
 		switch (cleartype) {
 		case 0:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
+			recommend << sid << ";" << chart.name << ";" << chart.rating << ";" << adjRating((chart.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
+			recommend << sid << ";" << chart.name << ";" << chart.hcrating << ";" << adjRating((chart.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		case 1:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
+			recommend << sid << ";" << chart.name << ";" << chart.hcrating << ";" << adjRating((chart.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		default:
 			break;
@@ -963,30 +963,29 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 		return;
 	}
 	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
-	for (const auto& s : songTable) {
+	for (const auto& [sid, chart] : songTable) {
 		bool ignore = false;
 		for (const auto& i : ignores) {
-			for (const auto& t : s.second.tablesFolders) {
+			for (const auto& t : chart.tablesFolders) {
 				if (t.first == i) ignore = true;
 			}
 		}
 		if (ignore) continue;
 		int cleartype = 0;
 		for (const auto &[md5, clear] : player.clears) {
-			if (md5 == s.first) {
+			if (md5 == sid) {
 				cleartype = clear;
 			}
 		}
-		float ep = clearProbability(player.rating, s.second.rating);
-		float hp = clearProbability(player.rating, s.second.hcrating);
-		const std::string& sid = s.first;
+		float ep = clearProbability(player.rating, chart.rating);
+		float hp = clearProbability(player.rating, chart.hcrating);
 		switch (cleartype) {
 		case 0:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.rating << ";" << adjRating((s.second.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
+			recommend << sid << ";" << chart.name << ";" << chart.rating << ";" << adjRating((chart.rating + summer) * scaler, &folderNormalizer) << ";" << ep << ";EASY\n";
+			recommend << sid << ";" << chart.name << ";" << chart.hcrating << ";" << adjRating((chart.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		case 1:
-			recommend << s.first << ";" << s.second.name << ";" << s.second.hcrating << ";" << adjRating((s.second.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
+			recommend << sid << ";" << chart.name << ";" << chart.hcrating << ";" << adjRating((chart.hcrating + summer) * scaler, &folderNormalizer) << ";" << hp << ";HARD\n";
 			break;
 		default:
 			break;
