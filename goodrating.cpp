@@ -368,7 +368,6 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 	}
 
 
-	file.close();
 	return false;
 }
 
@@ -508,7 +507,6 @@ static void writePlayerData(const Player& player, bool useSupplement) {
 			<< '\n';
 	}
 	std::cout << "wrote player data for " << (useSupplement ? player.supplement : std::to_string(player.lr2id)) << '\n';
-	playerData.close();
 }
 
 static float guessRating(Chart& chart) {
@@ -947,7 +945,6 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 			break;
 		}
 	}
-	recommend.close();
 }
 
 static void recommendTachi(const std::string& id, const std::vector<std::string>& ignores) {
@@ -997,7 +994,6 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 			break;
 		}
 	}
-	recommend.close();
 }
 
 int main(int argc, char** argv)
