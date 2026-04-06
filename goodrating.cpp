@@ -573,7 +573,7 @@ static bool runFullIterations() {
 
 	int iter = 100; // amount of iterations
 	if (const char* my_iter_count = getenv("MY_ITER_COUNT")) { // poop
-		std::from_chars(my_iter_count, my_iter_count + std::string_view(my_iter_count).size(), iter);
+		iter = from_chars<int>(my_iter_count).value();
 	}
 	int helper = iter;
 	//nudge size per iteration
