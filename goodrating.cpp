@@ -1018,8 +1018,4 @@ int main(int argc, char** argv)
 	for (const std::string& tachiid : bokutachiplayers) {
 		recommendTachi(tachiid, ignores);
 	}
-
-	/*for (auto a : tableTable) {
-		std::cout << a.first << " - " << a.second << '\n';
-	}*/
 }
