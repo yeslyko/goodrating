@@ -82,7 +82,8 @@ template<typename T>
 static std::optional<T> from_chars(std::string_view s)
 {
 	T out;
-	if (auto ec = std::from_chars(s.data(), s.data() + s.size(), out); ec.ec != std::errc{})
+	if (auto ec = std::from_chars(s.data(), s.data() + s.size(), out);
+			ec.ec != std::errc{} || ec.ptr != s.data() + s.size())
 		return std::nullopt;
 	return {out};
 }
@@ -213,6 +214,8 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 	std::string cleartype;
 
 	while (std::getline(file, gotline)) {
+		if (!gotline.empty() && gotline.back() == '\r') // on Linux on Linux getline splits on \n but files may be \r\n
+			gotline.pop_back();
 		for (auto&& line_ : std::views::split(gotline, ';')) {
 			const auto line = std::string_view{line_.begin(), line_.end()};
 			switch (i) {
@@ -851,17 +854,24 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 
 	std::stringstream ss;
 
+	std::string nut;
 	std::string line;
 	std::string md5;
 	for (const auto& dirEntry : std::filesystem::directory_iterator(path)) {
-		std::ifstream tachiPlayer(dirEntry.path().string());
-		Player player;
 		const auto& path = dirEntry.path();
+		std::ifstream tachiPlayer(path.string());
+
+		Player player;
 		player.supplement = supplement + path.stem().string();
-		std::string nut;
+
 		std::getline(tachiPlayer, nut);
+		if (!nut.empty() && nut.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+			nut.pop_back();
 		player.name = nut;
+
 		while (std::getline(tachiPlayer, nut)) {
+			if (!nut.empty() && nut.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				nut.pop_back();
 			try {
 				ss.clear();
 				ss << nut;
@@ -875,7 +885,7 @@ static void calcOtherIRScores(const std::string& path, const std::string& supple
 				player.clears.insert_or_assign(md5, cleartype);
 			}
 			catch (const std::exception& e) {
-				std::cout << "failed blah blah " << e.what() << '\n';
+				std::cout << "Parsing tachi player failed: " << std::quoted(nut) << ": " << e.what() << '\n';
 				continue;
 			}
 		}
