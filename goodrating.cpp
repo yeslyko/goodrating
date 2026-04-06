@@ -700,10 +700,10 @@ static bool runFullIterations() {
 			[[ omp::sequence(directive(critical)) ]]
 			{
 				ecMean += localEcMean;
-				totalCharts += songTable.size();
 			}
 		}
 
+		totalCharts += songTable.size();
 		ecMean /= static_cast<float>(totalCharts);
 		ecSigma = 0;
 
