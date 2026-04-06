@@ -205,7 +205,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 
 	std::string gotline;
 	int i = 0;
-	float folder;
+	int folder;
 	std::string songname;
 	std::string sid;
 	int pid = 0;
@@ -234,7 +234,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 					}
 					else {
 						try {
-							folder = from_chars<float>(line).value();
+							folder = from_chars<int>(line).value();
 						}
 						catch (const std::exception& e) {
 							std::cout << line << ": " << e.what() << '\n';
@@ -249,7 +249,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 					}
 					else {
 						try {
-							folder = from_chars<float>(line).value();
+							folder = from_chars<int>(line).value();
 						}
 						catch (const std::exception& e) {
 							std::cout << line << ": " << e.what() << '\n';
@@ -309,37 +309,37 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				if (mode == 1) {
 					if (table == "spnormal" ||
 							table == "spnormaltwo") {
-						chart.rating = folder + 0.5F;
+						chart.rating = static_cast<float>(folder) + 0.5F;
 					}
 					if (table == "spinsane" ||
 							table == "spinsanetwo") {
-						chart.rating = folder + 11.5F;
+						chart.rating = static_cast<float>(folder) + 11.5F;
 					}
 					if (table == "spsatellite" ||
 							table == "sparmshougakkou") {
-						chart.rating = folder * 1.6F + 11.5F;
+						chart.rating = static_cast<float>(folder) * 1.6F + 11.5F;
 					}
 					if (table == "spln" ||
 							table == "spluminous") {
-						chart.rating = folder * 0.9F + 11.5F;
+						chart.rating = static_cast<float>(folder) * 0.9F + 11.5F;
 					}
 					if (table == "spstella") {
-						chart.rating = folder * 0.6F + 31.5F;
+						chart.rating = static_cast<float>(folder) * 0.6F + 31.5F;
 					}
 					if (table == "spoverjoy" ||
 							table == "spgachimijoy") {
-						chart.rating = folder + 31.5F;
+						chart.rating = static_cast<float>(folder) + 31.5F;
 					}
 					if (table == "spdystopia") {
-						chart.rating = folder * 0.5F + 35.5F;
+						chart.rating = static_cast<float>(folder) * 0.5F + 35.5F;
 					}
 				}
 				else if (mode == 2) {
 					if (table == "delta") {
-						chart.rating = folder + 0.5F;
+						chart.rating = static_cast<float>(folder) + 0.5F;
 					}
 					if (table == "insane" || table == "satellite") {
-						chart.rating = folder + 11.5F;
+						chart.rating = static_cast<float>(folder) + 11.5F;
 					}
 				}
 				/*
