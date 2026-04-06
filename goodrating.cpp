@@ -467,8 +467,9 @@ static float calcFailWeight(const Player& player, const Chart& chart) {
 }
 
 //used for tethering ratings to the average of its folder
-static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages() {
-	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
+static void calcTableAverages(std::unordered_map<std::string, std::pair<int, float>>& tableAverages)
+{
+	tableAverages.clear();
 	for (auto& [_md5, chart] : songTable) {
 		const auto& [name, level] = *chart.tablesFolders.begin();
 		auto& [a, b] = tableAverages[name + std::to_string(level)];
@@ -478,7 +479,6 @@ static std::unordered_map<std::string, std::pair<int, float>> calcTableAverages(
 	for (auto& [_k, averages] : tableAverages) {
 		averages.second /= static_cast<float>(averages.first);
 	}
-	return tableAverages;
 }
 
 static void writePlayerData(const Player& player, bool useSupplement) {
@@ -664,7 +664,7 @@ static bool runFullIterations() {
 		}
 
 		//run ec ratings for each file
-		tableAverages = calcTableAverages();
+		calcTableAverages(tableAverages);
 
 		[[ omp::sequence(directive(parallel)) ]]
 		{
