@@ -298,9 +298,8 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				playerTable.emplace(pid, player);
 			}
 			else {
-				auto clear = got->second.clears.find(sid);
-				if (clear == got->second.clears.end() || clear->second < clearVal)
-					got->second.clears.insert_or_assign(sid, clearVal);
+				auto& clear = got->second.clears[sid];
+				clear = std::max(clear, clearVal);
 			}
 
 			auto get = songTable.find(sid);
@@ -356,9 +355,8 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				   }
 				   */
 				chart.hcrating = chart.rating;
-				chart.scores = std::vector<std::pair<int, int>>();
 				chart.scores.emplace_back(pid, clearVal);
-				chart.playcount = 1;
+				chart.playcount++;
 				songTable.emplace(sid, chart);
 			}
 			else {
