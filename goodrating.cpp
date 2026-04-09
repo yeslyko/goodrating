@@ -131,6 +131,7 @@ static float chartEstimator(float CR, float PR, int clear, int mode) {
 		if (clear != 2) clear = 0;
 		if (clear == 2) clear = 1;
 		break;
+	default: abort();
 	}
 
 	//nudge uwu
@@ -281,6 +282,7 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				cleartype = line;
 				i = 0;
 				break;
+			default: abort();
 			}
 
 			if (i != 0 || std::ranges::contains(cheatersList, pid))
@@ -573,7 +575,7 @@ static bool runFullIterations() {
 	countChartCount();
 
 	int iter = 100; // amount of iterations
-	if (const char* my_iter_count = getenv("MY_ITER_COUNT")) { // poop
+	if (const char* my_iter_count = getenv("MY_ITER_COUNT")) { // NOLINT(concurrency-mt-unsafe) poop
 		iter = from_chars<int>(my_iter_count).value();
 	}
 	int helper = iter;
