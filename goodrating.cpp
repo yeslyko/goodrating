@@ -896,9 +896,10 @@ static bool runFullIterations(bool enable_v2_data) {
 		for (auto& kv : playerTable) {
 			playerPtrs.push_back(&kv.second);
 		}
-		[[ omp::sequence(directive(parallel), directive(for schedule(static))) ]]
-		for (auto & playerPtr : playerPtrs) {
-			playerEstimator(*playerPtr);
+#pragma omp parallel for schedule(static)
+		// NOLINTNEXTLINE(modernize-loop-convert) openmp
+		for (int i = 0; i < static_cast<int>(playerPtrs.size()); ++i) {
+			playerEstimator(*playerPtrs[i]);
 		}
 		if (firstRun) {
 			for (auto& g : songTable) {
@@ -942,11 +943,11 @@ static bool runFullIterations(bool enable_v2_data) {
 		//run ec ratings for each file
 		calcTableAverages(tableAverages);
 
-		[[ omp::sequence(directive(parallel)) ]]
+#pragma omp parallel
 		{
 			float localEcMean = 0;
 
-			[[ omp::sequence(directive(for)) ]]
+#pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
 				Chart& chart = it->second;
@@ -974,7 +975,7 @@ static bool runFullIterations(bool enable_v2_data) {
 				localEcMean += chart.rating;
 			}
 
-			[[ omp::sequence(directive(critical)) ]]
+#pragma omp critical
 			{
 				ecMean += localEcMean;
 			}
@@ -985,11 +986,11 @@ static bool runFullIterations(bool enable_v2_data) {
 		ecSigma = 0;
 
 		//run hc ratings for each file
-		[[ omp::sequence(directive(parallel)) ]]
+#pragma omp parallel
 		{
 			float localEcSigma = 0;
 
-			[[ omp::sequence(directive(for)) ]]
+#pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
 				Chart& chart = it->second;
@@ -1026,7 +1027,7 @@ static bool runFullIterations(bool enable_v2_data) {
 				localEcSigma += std::pow(chart.rating - ecMean, 2.F);
 			}
 
-			[[ omp::sequence(directive(critical)) ]]
+#pragma omp critical
 			{
 				ecSigma += localEcSigma;
 			}
