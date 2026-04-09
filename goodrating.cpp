@@ -837,8 +837,6 @@ static bool runFullIterations(bool enable_v2_data) {
 		auto beg = std::chrono::high_resolution_clock::now();
 		for (const auto& dirEntry : std::filesystem::directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
 			std::string stem = std::filesystem::path(dirEntry).stem().string();
-			if(stem.starts_with("bimbo"))
-				continue;
 			std::cout << "loading table " << stem << '\n';
 			if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
 		}
