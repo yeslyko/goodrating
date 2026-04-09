@@ -1,0 +1,9 @@
+# it's the vibes man
+---
+Language: Cpp
+BasedOnStyle: microsoft
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortCaseLabelsOnASingleLine: true
+PointerAlignment: Left
+QualifierAlignment: Left

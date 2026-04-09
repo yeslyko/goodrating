@@ -471,6 +471,13 @@ static void calcTableAverages(std::unordered_map<std::string, std::pair<int, flo
 {
 	tableAverages.clear();
 	for (auto& [_md5, chart] : songTable) {
+		if (chart.tablesFolders.empty()) {
+			if(static bool once = false; !once) {
+				once = true;
+				std::cout << "your dataset has a chart present in no tables\n";
+			}
+			continue;
+		}
 		const auto& [name, level] = *chart.tablesFolders.begin();
 		auto& [a, b] = tableAverages[name + std::to_string(level)];
 		a += 1;
@@ -562,13 +569,283 @@ static void countChartCount() {
 	}
 }
 
-static bool runFullIterations() {
-	std::cout << "loading scores..." << '\n';
-	for (const auto& dirEntry : std::filesystem::directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
-		std::string stem = std::filesystem::path(dirEntry).stem().string();
+// RFC 4180 CSV
+// \return field count
+[[nodiscard]] static size_t split_csv(std::vector<std::string>& buf, std::string_view s) {
+	if (buf.empty()) {
+		buf.emplace_back();
+	} else {
+		for (auto& line : buf) { // keep per-line capacity around
+			line.clear();
+		}
+	}
+	// Something is funky with quotes but I don't care enough since it's only used for cosmetics. TODO: look for
+	// song name of 179ca83e83a13dceabb6fbcd093aa33c.
+	size_t field_index = 0;
+	bool prev_is_quote = false;
+	bool inside_quote = false;
+	for (char c : s) {
+		if (c == '"') {
+			if (inside_quote && prev_is_quote) {
+				// escaped quote
+				prev_is_quote = false;
+				buf[field_index].push_back(c);
+			} else {
+				inside_quote = !inside_quote;
+				prev_is_quote = true;
+			}
+		} else if (c == ',' && !inside_quote) {
+			prev_is_quote = false;
+			field_index++;
+			if (buf.size() < field_index + 1) {
+				buf.emplace_back();
+			}
+		} else {
+			prev_is_quote = false;
+			buf[field_index].push_back(c);
+		}
+	}
+	return field_index + 1;
+}
 
-		std::cout << "loading table " << stem << '\n';
-		if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
+// \return non-empty string on error
+static std::string load_dataset_v2(int mode, std::unordered_map<int, Player>& playerTable,
+				   std::unordered_map<std::string, Chart>& songTable)
+{
+	int parts_loaded = 0;
+	static constexpr int parts_total = 4;
+
+	std::string line_buf;
+	std::vector<std::string> csv_buf;
+
+	std::unordered_map<std::string, std::unordered_map<std::string, int>> table_level_as_int;
+	std::unordered_map<std::string, std::unordered_map<std::string, float>> table_level_rating;
+	if (auto ifs = std::ifstream{mode == 1 ? "table_level_ratings_sp.csv" : "table_level_ratings_dp.csv"}; ifs.is_open())
+	{
+		bool skip_first = true;
+		size_t line = 0;
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+			if (auto z = split_csv(csv_buf, line_buf); z != 4) {
+				return std::to_string(line) + ": invalid csv field count in table level ratings: " + std::to_string(z) + " != " + std::to_string(4);
+			}
+			const std::string& table = csv_buf[0];
+			const std::string& level = csv_buf[1];
+			const auto level_as_int = from_chars<int>(csv_buf[2]);
+			if (!level_as_int) {
+				return std::to_string(line) + ": invalid 'level_as_int'";
+			}
+			const auto rating = from_chars<float>(csv_buf[3]);
+			if (!rating) {
+				return std::to_string(line) + ": invalid 'rating'";
+			}
+			table_level_as_int[table][level] = *level_as_int;
+			table_level_rating[table][level] = *rating;
+		}
+	}
+
+	if (auto ifs = std::ifstream{mode == 1 ? "input/spv2/chart_names.csv" : "input/dpv2/chart_names.csv"}; ifs.is_open())
+	{
+		parts_loaded += 1;
+		bool skip_first = true;
+		size_t line = 0;
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+			if (auto z = split_csv(csv_buf, line_buf); z != 2) {
+				return std::to_string(line) + ": invalid csv field count in chart names: " + std::to_string(z) + " != " + std::to_string(2);
+			}
+			const std::string& md5 = csv_buf[0];
+			if (md5.size() != 32) {
+				return std::to_string(line) + ": invalid md5: " + md5;
+			}
+			const std::string& name = csv_buf[1];
+			auto& chart = songTable[md5];
+			chart.name = name;
+			for (char c : {';', ',', '"'})
+				for(auto pos = chart.name.find(c); pos != chart.name.npos; pos = chart.name.find(c))
+					chart.name[pos] = 'X';
+			chart.rating = -1;
+			chart.hcrating = -1;
+		}
+	}
+	if (auto ifs = std::ifstream{mode == 1 ? "input/spv2/chart_table_levels.csv" : "input/dpv2/chart_table_levels.csv"}; ifs.is_open())
+	{
+		parts_loaded += 1;
+		bool skip_first = true;
+		size_t line = 0;
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+			if (auto z = split_csv(csv_buf, line_buf); z != 3) {
+				return std::to_string(line) + ": invalid csv field count in chart table levels: " + std::to_string(z) + " != " + std::to_string(3);
+			}
+
+			const std::string& table = csv_buf[0];
+			const std::string& level = csv_buf[1];
+			const std::string& md5 = csv_buf[2];
+
+			if (md5.size() != 32) {
+				return std::to_string(line) + ": invalid md5: " + md5;
+			}
+
+			auto chart = songTable.find(md5);
+			if (chart == songTable.end()) {
+				return std::to_string(line) + ": song '" + md5 + "' mention in  was not found";
+			}
+			chart->second.tablesFolders[table] = table_level_as_int[table][level];
+			// inherited from non-v2 but this is stupid as it may overwrite rating depending on
+			// order of data
+			chart->second.rating = table_level_rating[table][level];
+			chart->second.hcrating = chart->second.rating;
+		}
+	}
+	if (auto ifs = std::ifstream{mode == 1 ? "input/spv2/lr2ir_players.csv" : "input/dpv2/lr2ir_players.csv"}; ifs.is_open())
+	{
+		parts_loaded += 1;
+		bool skip_first = true;
+		size_t line = 0;
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+			if (auto z = split_csv(csv_buf, line_buf); z != 2) {
+				return std::to_string(line) + ": invalid csv field count in lr2ir players: " + std::to_string(z) + " != " + std::to_string(2);
+			}
+			auto lr2id = from_chars<int>(csv_buf[0]);
+			if (!lr2id) {
+				return std::to_string(line) + ": invalid 'lr2id'";
+			}
+			const std::string& name = csv_buf[1];
+			if (std::ranges::contains(cheatersList, *lr2id)) {
+				continue;
+			}
+			auto& player = playerTable[*lr2id];
+			player.name = name;
+			for (char c : {';', ',', '"'})
+				for(auto pos = player.name.find(c); pos != player.name.npos; pos = player.name.find(c))
+					player.name[pos] = 'X';
+			player.lr2id = *lr2id;
+		}
+	}
+	if (auto ifs = std::ifstream{mode == 1 ? "input/spv2/lr2ir_scores.csv" : "input/dpv2/lr2ir_scores.csv"}; ifs.is_open())
+	{
+		parts_loaded += 1;
+		bool skip_first = true;
+		size_t line = 0;
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+			if (auto z = split_csv(csv_buf, line_buf); z != 3) {
+				return std::to_string(line) + ": invalid csv field count in lr2ir scores: " + std::to_string(z) + " != " + std::to_string(3);
+			}
+			const std::string& md5 = csv_buf[0];
+			auto lr2id = from_chars<int>(csv_buf[1]);
+			auto lamp = from_chars<int>(csv_buf[2]);
+
+			if (std::ranges::contains(cheatersList, *lr2id)) {
+				continue;
+			}
+
+			auto player = playerTable.find(*lr2id);
+			if (player == playerTable.end()) {
+				return std::to_string(line) + ": score for missing player: " + std::to_string(*lr2id) + " " + md5;
+			}
+
+			auto chart = songTable.find(md5);
+			if (chart == songTable.end()) {
+				return std::to_string(line) + ": score for missing song: " + std::to_string(*lr2id) + " " + md5;
+			}
+
+			auto& clear = player->second.clears[md5];
+			switch (*lamp) {
+				case 0: 		  // noplay
+				case 1: clear = 0; break; // fail
+				case 2: 		  // easy
+				case 3: clear = 1; break; // groove
+				case 4:                   // hard
+				case 5: clear = 2; break; // fc
+				default: std::cout << std::to_string(line) + ": bad lamp " << *lamp << ' ' << *lr2id << ' ' << md5 << '\n'; continue;
+			}
+
+			// like above, dumb in case there appear several lamps from same player
+			chart->second.scores.emplace_back(*lr2id, clear);
+			chart->second.playcount++;
+		}
+	}
+
+	if (parts_loaded != parts_total) {
+		return "missing data, loaded " + std::to_string(parts_loaded) + '/' + std::to_string(parts_total) + " parts";
+	}
+
+	return {};
+}
+
+static bool runFullIterations() {
+	bool enable_v2_data = getenv("MY_V2_DATA") != nullptr; // NOLINT(concurrency-mt-unsafe) poop
+	if (enable_v2_data) {
+		std::cout << "loading v2 data..." << '\n';
+		auto beg = std::chrono::high_resolution_clock::now();
+		if(auto error = load_dataset_v2(mode, playerTable, songTable); !error.empty()){
+			std::cout << "loading data failed: " << error << '\n';
+			return true;
+		}
+		std::cout << "loaded data in "
+			<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
+			<< " seconds\n";
+	} else {
+		std::cout << "loading data..." << '\n';
+		auto beg = std::chrono::high_resolution_clock::now();
+		for (const auto& dirEntry : std::filesystem::directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
+			std::string stem = std::filesystem::path(dirEntry).stem().string();
+			if(stem.starts_with("bimbo"))
+				continue;
+			std::cout << "loading table " << stem << '\n';
+			if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
+		}
+		std::cout << "loaded data in "
+			<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
+			<< " seconds\n";
 	}
 
 	countFolderCompletions();

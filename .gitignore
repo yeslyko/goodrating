@@ -432,6 +432,6 @@ FodyWeavers.xsd
 *.msp
 
 ## GOODRATING STUFF
-input/
-output/
+input*/
+output*/
 goodrating.exe
