@@ -821,8 +821,7 @@ static std::string load_dataset_v2(int mode, std::unordered_map<int, Player>& pl
 	return {};
 }
 
-static bool runFullIterations() {
-	bool enable_v2_data = getenv("MY_V2_DATA") != nullptr; // NOLINT(concurrency-mt-unsafe) poop
+static bool runFullIterations(bool enable_v2_data) {
 	if (enable_v2_data) {
 		std::cout << "loading v2 data..." << '\n';
 		auto beg = std::chrono::high_resolution_clock::now();
@@ -1268,15 +1267,17 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	bool enable_v2_data = false;
 	if (std::string_view moder{argv[1]}; moder == "sp")
 		mode = 1;
 	else if (moder == "dp")
 		mode = 2;
+	else if (moder == "spv2")
+		mode = 1, enable_v2_data = true;
+	else if (moder == "dpv2")
+		mode = 2, enable_v2_data = true;
 	else
-	{
-		std::cout << usage << '\n';
-		return 1;
-	}
+		return std::cout << usage << '\n', 1;
 	std::cout << "mode: " << mode << '\n';
 
         std::vector<std::string> ignores;
@@ -1290,7 +1291,7 @@ int main(int argc, char** argv)
 	}
 	std::cout << '\n';
 
-	if (runFullIterations()) {
+	if (runFullIterations(enable_v2_data)) {
 		std::cout << "runFullIterations failed\n";
 		return 1;
 	}
