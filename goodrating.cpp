@@ -101,15 +101,6 @@ static bool checkForTable(const std::string& table, const Chart& chart) {
 	return chart.tablesFolders.contains(table);
 }
 
-static int clearConversion(const std::string& clearType) {
-	if (clearType == "Failed") return 0;
-	if (clearType == "EasyClear") return 1;
-	if (clearType == "NormalClear") return 1;
-	if (clearType == "HardClear") return 2;
-	if (clearType == "FullCombo") return 2;
-	return -1;
-}
-
 static float clearProbability(float pr, float cr) {
 	float sigma = ((mode == 1) ? 1.F : 0.5F);
 	return (0.5F * (1.F + std::erf((pr - cr) / (sqrt(2.F) * sigma))));
@@ -199,183 +190,6 @@ static float adjRating(float rating, std::vector<std::pair<float, float>>* norma
 	}
 
 	return -999;
-}
-
-static bool chartReader(const std::string& filename, const std::string& table) {
-	std::ifstream file(filename);
-	if (!file.is_open()) {
-		std::cerr << "deez nuts";
-		return true;
-	}
-
-	std::string gotline;
-	int i = 0;
-	int folder;
-	std::string songname;
-	std::string sid;
-	int pid = 0;
-	std::string playername;
-	std::string cleartype;
-
-	while (std::getline(file, gotline)) {
-		if (!gotline.empty() && gotline.back() == '\r') // on Linux on Linux getline splits on \n but files may be \r\n
-			gotline.pop_back();
-		for (auto&& line_ : std::views::split(gotline, ';')) {
-			const auto line = std::string_view{line_.begin(), line_.end()};
-			switch (i) {
-			case 0:
-				switch(mode)
-				{
-				case 1:
-					if (line == "ï¿½H" || line == "99" ||
-							line == "?" || line == "???" ||
-							line == "査定中" || line == "999" || line == "X") {
-						folder = -1;
-					}
-					else if (line == "0-" || line == "-2" || line == "-1" || line == "DELAY_BEGINNER") {
-						folder = 0;
-					}
-					else if (line == "DELAY_MASTER") {
-						folder = 13;
-					}
-					else if (line == "11+" || line == "12-" || line == "12+") {
-						folder = 12;
-					}
-					else {
-						try {
-							folder = from_chars<int>(line).value();
-						}
-						catch (const std::exception& e) {
-							std::cout << line << ": " << e.what() << '\n';
-						}
-					}
-					break;
-				case 2:
-					if (line == "�H" || line == "99" || line == "?") {
-						folder = -1;
-					}
-					else {
-						try {
-							folder = from_chars<int>(line).value();
-						}
-						catch (const std::exception& e) {
-							std::cout << line << ": " << e.what() << '\n';
-						}
-					}
-					break;
-				default: abort(); break;
-				}
-				i++;
-				break;
-			case 1:
-				songname = line;
-				i++;
-				break;
-			case 2:
-				sid = line;
-				i++;
-				break;
-			case 3:
-				pid = from_chars<int>(line).value();
-				i++;
-				break;
-			case 4:
-				playername = line;
-				i++;
-				break;
-			case 5:
-				cleartype = line;
-				i = 0;
-				break;
-			default: abort();
-			}
-
-			if (i != 0 || std::ranges::contains(cheatersList, pid))
-				continue;
-
-			int clearVal = clearConversion(cleartype);
-
-			auto got = playerTable.find(pid);
-			if (got == playerTable.end()) {
-				Player player;
-				player.name = playername;
-				player.lr2id = pid;
-				player.clears.insert_or_assign(sid, clearVal);
-				playerTable.emplace(pid, player);
-			}
-			else {
-				auto& clear = got->second.clears[sid];
-				clear = std::max(clear, clearVal);
-			}
-
-			auto get = songTable.find(sid);
-			if (get == songTable.end()) {
-				Chart chart;
-				chart.name = songname;
-				chart.tablesFolders.emplace(table, folder);
-				chart.rating = -1;
-				if (mode == 1) {
-					if (table == "spnormal" ||
-							table == "spnormaltwo") {
-						chart.rating = static_cast<float>(folder) + 0.5F;
-					}
-					if (table == "spinsane" ||
-							table == "spinsanetwo") {
-						chart.rating = static_cast<float>(folder) + 11.5F;
-					}
-					if (table == "spsatellite" ||
-							table == "sparmshougakkou") {
-						chart.rating = static_cast<float>(folder) * 1.6F + 11.5F;
-					}
-					if (table == "spln" ||
-							table == "spluminous") {
-						chart.rating = static_cast<float>(folder) * 0.9F + 11.5F;
-					}
-					if (table == "spstella") {
-						chart.rating = static_cast<float>(folder) * 0.6F + 31.5F;
-					}
-					if (table == "spoverjoy" ||
-							table == "spgachimijoy") {
-						chart.rating = static_cast<float>(folder) + 31.5F;
-					}
-					if (table == "spdystopia") {
-						chart.rating = static_cast<float>(folder) * 0.5F + 35.5F;
-					}
-				}
-				else if (mode == 2) {
-					if (table == "delta") {
-						chart.rating = static_cast<float>(folder) + 0.5F;
-					}
-					if (table == "insane" || table == "satellite") {
-						chart.rating = static_cast<float>(folder) + 11.5F;
-					}
-				}
-				/*
-				   if (table == "overjoy" || table == "stella") {
-				   chart.rating = 23.5F;
-				   }
-				   if (folder == -1) {
-				   if (table == "overjoy") chart.rating = 23.5F;
-				   if (table == "insane") chart.rating = 16.5F;
-				   if (table == "delta") chart.rating = 6.5F;
-				   }
-				   */
-				chart.hcrating = chart.rating;
-				chart.scores.emplace_back(pid, clearVal);
-				chart.playcount++;
-				songTable.emplace(sid, chart);
-			}
-			else {
-				if (!(checkForTable(table, get->second))) get->second.tablesFolders.emplace(table, folder);
-				get->second.scores.emplace_back(pid, clearVal);
-				get->second.playcount++;
-			}
-
-		}
-	}
-
-
-	return false;
 }
 
 static float scaler = 1.F;
@@ -613,8 +427,8 @@ static void countChartCount() {
 }
 
 // \return non-empty string on error
-static std::string load_dataset_v2(int mode, std::unordered_map<int, Player>& playerTable,
-				   std::unordered_map<std::string, Chart>& songTable)
+static std::string load_dataset(int mode, std::unordered_map<int, Player>& playerTable,
+				std::unordered_map<std::string, Chart>& songTable)
 {
 	int parts_loaded = 0;
 	static constexpr int parts_total = 4;
@@ -825,29 +639,16 @@ static std::string load_dataset_v2(int mode, std::unordered_map<int, Player>& pl
 	return {};
 }
 
-static bool runFullIterations(bool enable_v2_data) {
-	if (enable_v2_data) {
-		std::cout << "loading v2 data..." << '\n';
-		auto beg = std::chrono::high_resolution_clock::now();
-		if(auto error = load_dataset_v2(mode, playerTable, songTable); !error.empty()){
-			std::cout << "loading data failed: " << error << '\n';
-			return true;
-		}
-		std::cout << "loaded data in "
-			<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
-			<< " seconds\n";
-	} else {
-		std::cout << "loading data..." << '\n';
-		auto beg = std::chrono::high_resolution_clock::now();
-		for (const auto& dirEntry : std::filesystem::directory_iterator((mode == 1) ? "input/sp/" : "input/dp/")) {
-			std::string stem = std::filesystem::path(dirEntry).stem().string();
-			std::cout << "loading table " << stem << '\n';
-			if (chartReader(std::filesystem::path(dirEntry).string(), stem)) return true;
-		}
-		std::cout << "loaded data in "
-			<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
-			<< " seconds\n";
+static bool runFullIterations() {
+	std::cout << "loading data..." << '\n';
+	auto beg = std::chrono::high_resolution_clock::now();
+	if(auto error = load_dataset(mode, playerTable, songTable); !error.empty()){
+		std::cout << "loading data failed: " << error << '\n';
+		return true;
 	}
+	std::cout << "loaded data in "
+		<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
+		<< " seconds\n";
 
 	countFolderCompletions();
 	countChartCount();
@@ -1266,15 +1067,10 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	bool enable_v2_data = false;
 	if (std::string_view moder{argv[1]}; moder == "sp")
 		mode = 1;
 	else if (moder == "dp")
 		mode = 2;
-	else if (moder == "spv2")
-		mode = 1, enable_v2_data = true;
-	else if (moder == "dpv2")
-		mode = 2, enable_v2_data = true;
 	else
 		return std::cout << usage << '\n', 1;
 	std::cout << "mode: " << mode << '\n';
@@ -1290,7 +1086,7 @@ int main(int argc, char** argv)
 	}
 	std::cout << '\n';
 
-	if (runFullIterations(enable_v2_data)) {
+	if (runFullIterations()) {
 		std::cout << "runFullIterations failed\n";
 		return 1;
 	}
