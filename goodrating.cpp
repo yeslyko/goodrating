@@ -18,8 +18,8 @@
 
 struct Player {
 	std::string name;
-	int lr2id;
-	float rating;
+	int lr2id{};
+	float rating{};
 	std::unordered_map<std::string, int> clears; // md5, clear
 	std::string supplement;
 	// PERF: vector performs better than unordered_map on the amount of levels tables usually have.
@@ -29,11 +29,11 @@ struct Player {
 struct Chart {
 	std::string name;
 	std::unordered_map<std::string, int> tablesFolders;
-	float rating;
-	float hcrating;
+	float rating{};
+	float hcrating{};
 	std::vector<std::pair<int, int>> scores; // [lr2id][clearType]
-	int playcount;
-	float cleardiffsd;
+	int playcount{};
+	float cleardiffsd{};
 };
 
 static constexpr auto&& lr2irplayers = {
@@ -297,7 +297,6 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 				Player player;
 				player.name = playername;
 				player.lr2id = pid;
-				player.rating = 0;
 				player.clears.insert_or_assign(sid, clearVal);
 				playerTable.emplace(pid, player);
 			}
