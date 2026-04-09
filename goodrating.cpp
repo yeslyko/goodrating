@@ -1011,7 +1011,10 @@ int main(int argc, char** argv)
 	}
 	std::cout << '\n';
 
-	if (runFullIterations()) std::cout << "you suck at programming\n";
+	if (runFullIterations()) {
+		std::cout << "runFullIterations failed\n";
+		return 1;
+	}
 	calcOtherIRScores((mode == 1) ? "input/tachi7K" : "input/tachi14K", "t");
 
 	for (int lr2id : lr2irplayers) {
