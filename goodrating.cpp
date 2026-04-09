@@ -176,6 +176,9 @@ static void playerEstimator(Player& player) {
 
 //normalize ratings to fit folder ratings for tachi
 static float adjRating(float rating, std::vector<std::pair<float, float>>* normalizer) {
+	if (normalizer->empty()) {
+		return -999;
+	}
 	if (rating < normalizer->at(0).first) {
 		return rating + normalizer->at(0).second;
 	}
