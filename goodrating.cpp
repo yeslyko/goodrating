@@ -803,7 +803,7 @@ static bool runFullIterations() {
 		std::cout << "!PRTable.is_open()\n";
 		return true;
 	}
-	PRTable << "rating,adj-rate,lr2id,name\n";
+	PRTable << "rating;adjRating;lr2id;name\n";
 	for (auto & players : playerTable) {
 		if (players.second.rating == -999) continue;
 		float adjRate = adjRating((players.second.rating + summer) * scaler, &folderNormalizer);
@@ -915,7 +915,7 @@ static void recommend(int id, const std::vector<std::string>& ignores) {
 		std::cout << "!recommend.is_open()\n";
 		return;
 	}
-	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
+	recommend << "md5;song;rating;adjRating;probability;cleartype\n";
 	for (const auto& [sid, chart] : songTable) {
                if (std::ranges::any_of(ignores, [&](const std::string& i) { return chart.tablesFolders.contains(i); }))
                        continue;
@@ -955,7 +955,7 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 		std::cout << "!recommend.is_open()\n";
 		return;
 	}
-	recommend << "md5,song,rating,adjRating,probability,cleartype\n";
+	recommend << "md5;song;rating;adjRating;probability;cleartype\n";
 	for (const auto& [sid, chart] : songTable) {
                if (std::ranges::any_of(ignores, [&](const std::string& i) { return chart.tablesFolders.contains(i); }))
                        continue;
