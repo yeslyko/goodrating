@@ -835,6 +835,10 @@ static bool runFullIterations() {
 
 static void calcOtherIRScores(const std::string& path, const std::string& supplement) {
 	// if (songTable.size() == 0) loadSongs();
+	if (!std::filesystem::exists(path)) {
+		std::cout << "calcOtherIRScores - path doesn't exist: " << path << "\n";
+		return;
+	}
 
 	std::error_code ec;
 	std::filesystem::create_directories(mode == 1 ? "output/sp" : "output/dp", ec);
