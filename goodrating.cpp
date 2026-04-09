@@ -186,7 +186,7 @@ static float adjRating(float rating, std::vector<std::pair<float, float>>* norma
 		return (normalizer->end() - 1)->first + (caravan / peach) * stretcher;
 	}
 
-	for (int i = 1; i < normalizer->size(); i++) {
+	for (size_t i = 1; i < normalizer->size(); i++) {
 		if (normalizer->at(i).first >= rating && normalizer->at(i - 1).first < rating) {
 			float range = normalizer->at(i).first - normalizer->at(i - 1).first;
 			float prop = (rating - normalizer->at(i - 1).first) / range;
@@ -221,7 +221,9 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 			const auto line = std::string_view{line_.begin(), line_.end()};
 			switch (i) {
 			case 0:
-				if (mode == 1) {
+				switch(mode)
+				{
+				case 1:
 					if (line == "ï¿½H" || line == "99" ||
 							line == "?" || line == "???" ||
 							line == "査定中" || line == "999" || line == "X") {
@@ -244,10 +246,8 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							std::cout << line << ": " << e.what() << '\n';
 						}
 					}
-					i++;
 					break;
-				}
-				else if (mode == 2) {
+				case 2:
 					if (line == "�H" || line == "99" || line == "?") {
 						folder = -1;
 					}
@@ -259,9 +259,11 @@ static bool chartReader(const std::string& filename, const std::string& table) {
 							std::cout << line << ": " << e.what() << '\n';
 						}
 					}
-					i++;
 					break;
+				default: abort(); break;
 				}
+				i++;
+				break;
 			case 1:
 				songname = line;
 				i++;
@@ -949,12 +951,11 @@ static bool runFullIterations(bool enable_v2_data) {
 				auto it = std::next(songTable.begin(), i);
 				Chart& chart = it->second;
 				float sum = 0.f;
-				int pc = 0;
 				float cr = chart.rating;
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (int k = 0; k < chart.scores.size(); k++) {
+				for (size_t k = 0; k < chart.scores.size(); k++) {
 					const Player& player = playerTable.at(chart.scores[k].first);
 					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
@@ -962,7 +963,6 @@ static bool runFullIterations(bool enable_v2_data) {
 					if ((pr < cr) && (chart.scores[k].second > 0)) relevance += cr - pr;
 					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 0) * relevance;
 					totalRelevance += relevance;
-					pc = chart.playcount;
 				}
 
 				const auto& [name, level] = *chart.tablesFolders.begin();
@@ -994,14 +994,13 @@ static bool runFullIterations(bool enable_v2_data) {
 				auto it = std::next(songTable.begin(), i);
 				Chart& chart = it->second;
 				float sum = 0.f;
-				int pc = 0;
 				float cr = chart.hcrating;
 				float clearsd = 0.f;
 				int clearpc = 0;
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (int k = 0; k < chart.scores.size(); k++) {
+				for (size_t k = 0; k < chart.scores.size(); k++) {
 					const Player& player = playerTable.find(chart.scores[k].first)->second;
 					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
@@ -1009,7 +1008,6 @@ static bool runFullIterations(bool enable_v2_data) {
 					if ((pr < cr) && (chart.scores[k].second == 2)) relevance += cr - pr;
 					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 1) * relevance;
 					totalRelevance += relevance;
-					pc = chart.playcount;
 
 					if ((((pr < cr) && (chart.scores[k].second > 0)) || ((pr >= cr) && (chart.scores[k].second == 0))) &&
 						(std::abs(pr - cr) < 5.F)) {
@@ -1298,7 +1296,7 @@ int main(int argc, char** argv)
 	for (int lr2id : lr2irplayers) {
 		recommend(lr2id, ignores);
 	}
-	for (const std::string& tachiid : bokutachiplayers) {
+	for (const char* tachiid : bokutachiplayers) {
 		recommendTachi(tachiid, ignores);
 	}
 }
