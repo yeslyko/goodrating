@@ -77,10 +77,6 @@ static std::unordered_map<std::string, std::vector<std::pair<int, int>>> tableTa
 
 static int mode;
 
-static bool checkForTable(const std::string& table, const Chart& chart) {
-	return chart.tablesFolders.contains(table);
-}
-
 static float clearProbability(float pr, float cr) {
 	float sigma = ((mode == 1) ? 1.F : 0.5F);
 	return (0.5F * (1.F + std::erf((pr - cr) / (sqrt(2.F) * sigma))));
@@ -189,25 +185,27 @@ static void calcImportantFolderAverages() {
 		insane = "insane";
 	}
 
-	float eep = 0;
-	int womp = 0;
-	for (auto & charts : songTable) {
-		if (checkForTable(normal, charts.second) && charts.second.tablesFolders.find(normal)->second == 1) {
-			eep += charts.second.rating;
-			womp++;
+	float min_ratings = 0;
+	int min_count = 0;
+	for (auto& [_, chart] : songTable) {
+		if (auto it = chart.tablesFolders.find(normal);
+				it != chart.tablesFolders.end() && it->second == 1) {
+			min_ratings += chart.rating;
+			min_count++;
 		}
 	}
-	summer = eep / static_cast<float>(womp);
+	summer = min_ratings / static_cast<float>(min_count);
 
-	float wah = 0;
-	int glomp = 0;
-	for (auto & charts : songTable) {
-		if (checkForTable(insane, charts.second) && charts.second.tablesFolders.find(insane)->second == ((mode == 1) ? 25 : 13)) {
-			wah += charts.second.rating + summer;
-			glomp++;
+	float max_ratings = 0;
+	int max_count = 0;
+	for (auto& [_, chart] : songTable) {
+		if (auto it = chart.tablesFolders.find(insane);
+				it != chart.tablesFolders.end() && it->second == ((mode == 1) ? 25 : 13)) {
+			max_ratings += chart.rating + summer;
+			max_count++;
 		}
 	}
-	scaler = ((mode == 1) ? 36.5F : 24.5F) / (wah / static_cast<float>(glomp));
+	scaler = ((mode == 1) ? 36.5F : 24.5F) / (max_ratings / static_cast<float>(max_count));
 }
 
 static std::vector<std::pair<float, float>> folderNormalizer;
@@ -229,22 +227,24 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 	for (int i = 1; i < ((mode == 1) ? 37 : 25); i++) {
 		float flotsam = 0;
 		int count = 0;
-		for (auto & charts : songTable) {
-			if (!(checkForTable(normal, charts.second) || checkForTable(insane, charts.second))) {
+		for (auto& [_, chart] : songTable) {
+			auto normal_it = chart.tablesFolders.find(normal);
+			auto insane_it = chart.tablesFolders.find(insane);
+			auto end = chart.tablesFolders.end();
+			if (normal_it == end && insane_it == end) {
 				continue;
 			}
 			int folder = [&]() {
-				auto normal_it = charts.second.tablesFolders.find(normal);
-				if (normal_it != charts.second.tablesFolders.end())
+				if (normal_it != chart.tablesFolders.end())
 					return normal_it->second;
-				return charts.second.tablesFolders.at(insane);
+				return chart.tablesFolders.at(insane);
 			}();
-			if (checkForTable(normal, charts.second) && folder > 11) continue;
-			if (checkForTable(insane, charts.second)) folder += 11;
+			if (normal_it != end && folder > 11) continue;
+			if (insane_it != end) folder += 11;
 			if (folder != i) {
 				continue;
 			}
-			flotsam += (charts.second.rating + summer) * scaler;
+			flotsam += (chart.rating + summer) * scaler;
 			count++;
 		}
 		float avg = flotsam / static_cast<float>(count);
@@ -882,10 +882,8 @@ static bool runFullIterations() {
 	}
 
 	auto iterend = std::chrono::high_resolution_clock::now();
-
-	std::chrono::duration<double> s_double = iterend - iterstart;
-
-	std::cout << helper << " iterations completed in " << s_double.count() << " seconds.\n";
+	std::cout << helper << " iterations completed in " << std::chrono::duration<double>{iterend - iterstart}.count()
+		<< " seconds.\n";
 
 	calcImportantFolderAverages();
 	calcFolderNormalizers(&folderNormalizer);
@@ -903,14 +901,14 @@ static bool runFullIterations() {
 		return true;
 	}
 	CRTable << "table;level3;rating;hcrating;adjEC;adjHC;cleardiffsd;name;md5\n";
-	for (auto & charts : songTable) {
-		float adjEC = adjRating((charts.second.rating + summer) * scaler, &folderNormalizer);
-		float adjHC = adjRating((charts.second.hcrating + summer) * scaler, &folderNormalizer);
+	for (auto& [md5, chart] : songTable) {
+		float adjEC = adjRating((chart.rating + summer) * scaler, &folderNormalizer);
+		float adjHC = adjRating((chart.hcrating + summer) * scaler, &folderNormalizer);
 		std::string folderCheck;
-		if (charts.second.tablesFolders.begin()->second == -1) folderCheck = "?"; else folderCheck = std::to_string(charts.second.tablesFolders.begin()->second);
-		CRTable << charts.second.tablesFolders.begin()->first << ";" << folderCheck << ";" <<
-			charts.second.rating << ";" << charts.second.hcrating << ";" << adjEC << ";" << adjHC << ";" <<
-			charts.second.cleardiffsd << ";" << charts.second.name << ";" << charts.first << "\n";
+		if (chart.tablesFolders.begin()->second == -1) folderCheck = "?"; else folderCheck = std::to_string(chart.tablesFolders.begin()->second);
+		CRTable << chart.tablesFolders.begin()->first << ";" << folderCheck << ";" <<
+			chart.rating << ";" << chart.hcrating << ";" << adjEC << ";" << adjHC << ";" <<
+			chart.cleardiffsd << ";" << chart.name << ";" << md5 << "\n";
 	}
 	CRTable.close();
 
@@ -920,10 +918,10 @@ static bool runFullIterations() {
 		return true;
 	}
 	PRTable << "rating;adjRating;lr2id;name\n";
-	for (auto & players : playerTable) {
-		if (players.second.rating == -999) continue;
-		float adjRate = adjRating((players.second.rating + summer) * scaler, &folderNormalizer);
-		PRTable << players.second.rating << ";" << adjRate << ";" << players.first << ";" << players.second.name << "\n";
+	for (auto & [lr2id, player] : playerTable) {
+		if (player.rating == -999) continue;
+		float adjRate = adjRating((player.rating + summer) * scaler, &folderNormalizer);
+		PRTable << player.rating << ";" << adjRate << ";" << lr2id << ";" << player.name << "\n";
 	}
 	PRTable.close();
 
