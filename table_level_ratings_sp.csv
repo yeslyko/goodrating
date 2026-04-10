@@ -27,27 +27,26 @@ TableID,Level,LevelAsInt,Rating
 "sparmshougakkou","subUde9",9,25.9
 "spdystopia","0",0,35.5
 "spdystopia","1",1,36
+"spdystopia","10",10,40.5
 "spdystopia","2",2,36.5
 "spdystopia","3",3,37
 "spdystopia","4",4,37.5
 "spdystopia","5",5,38
 "spdystopia","6",6,38.5
 "spdystopia","7",7,39
+"spdystopia","8",8,39.5
+"spdystopia","9",9,40
 # baka
-"spdystopia","?",-1,-1
+"spdystopia","？",-1,-1
 "spgachimijoy","0",0,31.5
 "spgachimijoy","1",1,32.5
-"spgachimijoy","10",10,41.5
 "spgachimijoy","2",2,33.5
 "spgachimijoy","3",3,34.5
 "spgachimijoy","4",4,35.5
 "spgachimijoy","5",5,36.5
 "spgachimijoy","6",6,37.5
 "spgachimijoy","7",7,38.5
-"spgachimijoy","8",8,39.5
-"spgachimijoy","9",9,40.5
-# baka
-"spgachimijoy","？",-1,-1
+"spgachimijoy","?",-1,-1
 "spinsane","1",1,12.5
 "spinsane","10",10,21.5
 "spinsane","11",11,22.5
