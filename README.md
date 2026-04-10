@@ -13,7 +13,7 @@ Clone the repository and build it, Visual Studio should automatically hook up CM
 ***WIP WIP WIP WIP WIP***
 
 ### Preparing dataset
-Follow the instructions from [here](https://github.com/yeslyko/goodrating/edit/master/README.md#producing-dataset) to get a dataset first. The data acquiring process relies on [LR2 OxyTabler](https://crates.io/crates/lr2-oxytabler) (the table manager for Lunatic Rave 2), so make sure to get it first.
+Follow the instructions from [here](https://github.com/yeslyko/goodrating#producing-dataset) to get a dataset first. The data acquiring process relies on [LR2 OxyTabler](https://crates.io/crates/lr2-oxytabler) (the table manager for Lunatic Rave 2), so make sure to get it first.
 
 **⚠️ Warning: LR2IR does not have any DDoS protection or any protection from bots at all. As we know, the LR2IR server is hosted voluntarily by the site administrator at his home server and it's not in the best state. The scraper is used here for research purposes only, please use it with caution!**
 
