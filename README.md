@@ -2,6 +2,11 @@
 
 goodrating is an experimental difficulty estimation algorithm for BMS SP and DP charts and various statistics, such as player leaderboard and chart difficulty leaderboard.
 
+To check for leaderboard samples, go here:
+
+- [SP Leaderboard](https://github.com/yeslyko/goodrating/blob/master/SP_data.md)
+- [DP Leaderboard](https://github.com/yeslyko/goodrating/blob/master/DP_data.md)
+
 ## Setting up
 
 ### Build Instructions:
