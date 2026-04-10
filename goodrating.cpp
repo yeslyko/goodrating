@@ -576,19 +576,26 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 				return std::to_string(line) + ": score for missing song: " + std::to_string(*lr2id) + " " + md5;
 			}
 
-			auto& clear = player->second.clears[md5];
+			int new_clear;
 			switch (*lamp) {
-				case 0: 		  // noplay
-				case 1: clear = 0; break; // fail
-				case 2: 		  // easy
-				case 3: clear = 1; break; // groove
-				case 4:                   // hard
-				case 5: clear = 2; break; // fc
-				default: std::cout << std::to_string(line) + ": bad lamp " << *lamp << ' ' << *lr2id << ' ' << md5 << '\n'; continue;
+				case 0: 		      // noplay
+				case 1: new_clear = 0; break; // fail
+				case 2: 		      // easy
+				case 3: new_clear = 1; break; // groove
+				case 4:      	              // hard
+				case 5: new_clear = 2; break; // fc
+				default: std::cout << line << ": bad lamp " << *lamp << ' ' << *lr2id << ' ' << md5 << '\n'; continue;
 			}
 
-			// like above, dumb in case there appear several lamps from same player
-			chart->second.scores.emplace_back(*lr2id, clear);
+			auto clear = player->second.clears.find(md5);
+			if (clear == player->second.clears.end()) {
+				player->second.clears.insert_or_assign(md5, new_clear);
+			} else {
+				std::cout << "found score on " << md5 << " for " << *lr2id << " again " << clear->second <<" -> " <<new_clear <<" \n";
+				clear->second = std::max(clear->second, new_clear);
+			}
+
+			chart->second.scores.emplace_back(*lr2id, new_clear);
 			chart->second.playcount++;
 		}
 	}
