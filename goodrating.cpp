@@ -690,8 +690,23 @@ static bool runFullIterations() {
 		<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
 		<< " seconds\n";
 
-	countFolderCompletions();
-	countChartCount();
+	using Md5 = std::string;
+	using Lr2id = int;
+	std::unordered_map<Md5, std::unordered_map<Lr2id, float>> fail_weigths;
+	{
+		std::cout << "precomputing data..." << '\n';
+		auto beg = std::chrono::high_resolution_clock::now();
+		countFolderCompletions();
+		countChartCount();
+		for (const auto& [md5, chart] : songTable) {
+			for (const auto& [lr2id, _clear] : chart.scores) {
+				fail_weigths[md5][lr2id] = calcFailWeight(playerTable.at(lr2id), chart);
+			}
+		}
+		std::cout << "precomputed data in "
+			<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
+			<< " seconds\n";
+	}
 
 	int iter = 100; // amount of iterations
 	if (const char* my_iter_count = getenv("MY_ITER_COUNT")) { // NOLINT(concurrency-mt-unsafe) poop
@@ -802,7 +817,7 @@ static bool runFullIterations() {
 				for (auto & [lr2id, clear] : chart.scores) {
 					const Player& player = playerTable.at(lr2id);
 					float pr = player.rating;
-					float failWeight = calcFailWeight(player, chart);
+					float failWeight = fail_weigths.at(md5).at(lr2id);
 					relevance = calcRelevance(pr, cr) * ((clear == 0) ? failWeight : 1);
 					if ((pr < cr) && (clear > 0)) relevance += cr - pr;
 					sum += scale * chartEstimator(cr, pr, clear, 0) * relevance;
@@ -847,7 +862,7 @@ static bool runFullIterations() {
 				for (auto & [lr2id, clear] : chart.scores) {
 					const Player& player = playerTable.find(lr2id)->second;
 					float pr = player.rating;
-					float failWeight = calcFailWeight(player, chart);
+					float failWeight = fail_weigths[md5][lr2id];
 					relevance = calcRelevance(pr, cr) * ((clear < 2) ? failWeight : 1);
 					if ((pr < cr) && (clear == 2)) relevance += cr - pr;
 					sum += scale * chartEstimator(cr, pr, clear, 1) * relevance;
