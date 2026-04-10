@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "cpr",
+    "libxml2",
+    "sqlite3",
+    "libiconv"
+  ]
+}

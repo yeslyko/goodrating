@@ -362,6 +362,14 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
     return {};
 }
 
+static std::atomic<bool> interrupted;
+BOOL WINAPI console_ctrl_handler(DWORD ctrl)
+{
+    if (ctrl == CTRL_C_EVENT)
+        interrupted = true;
+    return TRUE;
+}
+
 int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
 {
     constexpr auto&& usage = "lr2irscraper {result.db} {your_lr2id} {?md5list.txt}\n"
@@ -568,7 +576,7 @@ PRAGMA synchronous=OFF;
         const auto worker_count = std::min(std::max(std::thread::hardware_concurrency(), 2u), worker_cap);
         workers.reserve(worker_count);
         std::println("spawning {} workers", worker_count);
-        for (auto i : std::views::iota(0u, worker_count))
+        for (auto i = 0u; i < worker_count; ++i)
             workers.emplace_back(work, &work_pool, worker_count, i);
     }
 
@@ -661,8 +669,6 @@ PRAGMA synchronous=OFF;
             std::println("failed to read supplied task file");
         }
     }
-
-    static std::atomic<bool> interrupted;
 #ifdef __linux__
     struct sigaction sa;
     sa.sa_handler = [](int signum) { interrupted = true; };
@@ -674,13 +680,7 @@ PRAGMA synchronous=OFF;
         work_pool.force_stop = true;
     }
 #elifdef _WIN32
-    SetConsoleCtrlHandler(
-        [](DWORD ctrl) WINAPI -> BOOL {
-            if (ctrl == CTRL_C_EVENT)
-                interrupted = true;
-            return TRUE;
-        },
-        TRUE);
+    SetConsoleCtrlHandler(&console_ctrl_handler, TRUE);
 #endif // __linux__
 
     while (true)

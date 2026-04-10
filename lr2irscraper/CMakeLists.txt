@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.29)
 project(lr2irscraper LANGUAGES CXX)
 
+if(WIN32)
+    add_definitions(-DNOMINMAX)
+endif()
+
 find_package(LibXml2 REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(cpr REQUIRED)
