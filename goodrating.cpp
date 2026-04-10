@@ -590,12 +590,16 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 			auto clear = player->second.clears.find(md5);
 			if (clear == player->second.clears.end()) {
 				player->second.clears.insert_or_assign(md5, new_clear);
+				chart->second.scores.emplace_back(*lr2id, new_clear);
 			} else {
 				std::cout << "found score on " << md5 << " for " << *lr2id << " again " << clear->second <<" -> " <<new_clear <<" \n";
 				clear->second = std::max(clear->second, new_clear);
+				auto existing_score = std::ranges::find(chart->second.scores, *lr2id, &std::pair<int, int>::first);
+				if (existing_score == std::ranges::end(chart->second.scores)) {
+					return std::to_string(line) + ": PROGRAMMER ERROR: " + std::to_string(*lr2id) + " " + md5;
+				}
+				existing_score->second = clear->second;
 			}
-
-			chart->second.scores.emplace_back(*lr2id, new_clear);
 			chart->second.playcount++;
 		}
 	}
