@@ -36,28 +36,8 @@ struct Chart {
 	float cleardiffsd{};
 };
 
-static constexpr auto&& lr2irplayers = {
-	85349, //cardinal
-	3906, //rag nihongo wakaranai
-	147174, //zyxwe
-	156698, //lyko
-	74079, //BLAZE
-	162258, //cat
-	21634, //ABCD
-	4075, //cheater0133
-};
-
-static constexpr auto&& bokutachiplayers = {
-	"t49", //pupu
-	"t374", //snover
-	"t429", //zyxwe
-	"t50", //tobycool
-	"t39", //nyannurs
-	"t1305", //mat
-	"t1642", //converstation
-	"t263", //paprotka
-	"t467", //tokakitake
-};
+static std::vector<int> lr2irplayers;
+static std::vector<std::string> bokutachiplayers;
 
 static constexpr auto&& cheatersList =
 {
@@ -639,6 +619,76 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 	return {};
 }
 
+static bool loadPlayerList(int mode) {
+	std::string line_buf;
+	std::vector<std::string> csv_buf;
+
+	if (auto ifs = std::ifstream{ mode == 1 ? "input/sp_playerlist_lr2ir.csv" : "input/dp_playerlist_lr2ir.csv" }; ifs.is_open()) {
+		bool skip_first = true;
+		size_t line = 0;
+
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (auto z = split_csv(csv_buf, line_buf); !z) {
+				std::cout << std::to_string(line) << ": invalid csv field count in playerlist file: " << std::to_string(z) << "\n";
+				return 1;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+
+			auto lr2id = from_chars<int>(csv_buf[0]);
+			if (!lr2id) {
+				std::cout << std::to_string(line) << ": invalid 'lr2id'";
+				continue;
+			}
+
+			lr2irplayers.push_back(*lr2id);
+		}
+	}
+
+	if (auto ifs = std::ifstream{ mode == 1 ? "input/sp_playerlist_tachi.csv" : "input/dp_playerlist_tachi.csv" }; ifs.is_open()) {
+		bool skip_first = true;
+		size_t line = 0;
+
+		while (std::getline(ifs, line_buf)) {
+			line++;
+			if (skip_first) {
+				skip_first = false;
+				continue;
+			}
+			if (line_buf.starts_with('#')) {
+				continue;
+			}
+			if (auto z = split_csv(csv_buf, line_buf); !z) {
+				std::cout << std::to_string(line) << ": invalid csv field count in playerlist file: " << std::to_string(z) << "\n";
+				return 1;
+			}
+			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
+				line_buf.pop_back();
+
+			auto tachiid = from_chars<int>(csv_buf[0]);
+
+			std::string tachiid_concat;
+			tachiid_concat.append("t").append(std::to_string(*tachiid));
+
+			if (!tachiid) {
+				std::cout << std::to_string(line) << ": invalid 'lr2id'";
+			}
+
+			bokutachiplayers.push_back(tachiid_concat);
+		}
+	}
+
+	return 0;
+}
+
 static bool runFullIterations() {
 	std::cout << "loading data..." << '\n';
 	auto beg = std::chrono::high_resolution_clock::now();
@@ -1086,6 +1136,11 @@ int main(int argc, char** argv)
 	}
 	std::cout << '\n';
 
+	if (loadPlayerList(mode)) {
+		std::cout << "loadPlayerList failed\n";
+		return 1;
+	}
+
 	if (runFullIterations()) {
 		std::cout << "runFullIterations failed\n";
 		return 1;
@@ -1095,7 +1150,7 @@ int main(int argc, char** argv)
 	for (int lr2id : lr2irplayers) {
 		recommend(lr2id, ignores);
 	}
-	for (const char* tachiid : bokutachiplayers) {
+	for (std::string tachiid : bokutachiplayers) {
 		recommendTachi(tachiid, ignores);
 	}
 }
