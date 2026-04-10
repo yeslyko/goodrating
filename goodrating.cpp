@@ -108,25 +108,15 @@ static float chartEstimator(float CR, float PR, int clear, int mode) {
 
 static void playerEstimator(Player& player) {
 	std::vector<float> clearRatings;
-	std::unordered_map<std::string, Chart>::iterator urg;
 
-	int clears = 0;
 	for (auto & [md5, clear] : player.clears) {
-		if (clear > 0) {
-			clears++;
-			urg = songTable.find(md5);
-			if (urg == songTable.end()) continue;
-			if (clear == 2) {
-				clearRatings.push_back(urg->second.hcrating);
-			}
-			else {
-				clearRatings.push_back(urg->second.rating);
-			}
+		if (clear == 0) {
+			continue;
 		}
-		continue;
+		const auto& chart = songTable.at(md5);
+		clearRatings.push_back(clear == 2 ? chart.hcrating : chart.rating);
 	}
-
-	if (clears == 0) {
+	if (clearRatings.empty()) {
 		player.rating = -999;
 		return;
 	}
