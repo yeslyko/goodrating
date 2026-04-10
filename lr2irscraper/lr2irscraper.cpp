@@ -363,12 +363,14 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
 }
 
 static std::atomic<bool> interrupted;
+#ifdef _WIN32
 BOOL WINAPI console_ctrl_handler(DWORD ctrl)
 {
     if (ctrl == CTRL_C_EVENT)
         interrupted = true;
     return TRUE;
 }
+#endif // _WIN32
 
 int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
 {
