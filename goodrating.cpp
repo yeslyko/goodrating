@@ -793,19 +793,19 @@ static bool runFullIterations() {
 #pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
-				Chart& chart = it->second;
+				auto& [md5, chart] = *it;
 				float sum = 0.f;
 				float cr = chart.rating;
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (size_t k = 0; k < chart.scores.size(); k++) {
-					const Player& player = playerTable.at(chart.scores[k].first);
+				for (auto & [lr2id, clear] : chart.scores) {
+					const Player& player = playerTable.at(lr2id);
 					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
-					relevance = calcRelevance(pr, cr) * ((chart.scores[k].second == 0) ? failWeight : 1);
-					if ((pr < cr) && (chart.scores[k].second > 0)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 0) * relevance;
+					relevance = calcRelevance(pr, cr) * ((clear == 0) ? failWeight : 1);
+					if ((pr < cr) && (clear > 0)) relevance += cr - pr;
+					sum += scale * chartEstimator(cr, pr, clear, 0) * relevance;
 					totalRelevance += relevance;
 				}
 
@@ -836,7 +836,7 @@ static bool runFullIterations() {
 #pragma omp for
 			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
 				auto it = std::next(songTable.begin(), i);
-				Chart& chart = it->second;
+				auto& [md5, chart] = *it;
 				float sum = 0.f;
 				float cr = chart.hcrating;
 				float clearsd = 0.f;
@@ -844,16 +844,16 @@ static bool runFullIterations() {
 				float totalRelevance = 1.F;
 				float relevance = 0.F;
 
-				for (size_t k = 0; k < chart.scores.size(); k++) {
-					const Player& player = playerTable.find(chart.scores[k].first)->second;
+				for (auto & [lr2id, clear] : chart.scores) {
+					const Player& player = playerTable.find(lr2id)->second;
 					float pr = player.rating;
 					float failWeight = calcFailWeight(player, chart);
-					relevance = calcRelevance(pr, cr) * ((chart.scores[k].second < 2) ? failWeight : 1);
-					if ((pr < cr) && (chart.scores[k].second == 2)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, chart.scores[k].second, 1) * relevance;
+					relevance = calcRelevance(pr, cr) * ((clear < 2) ? failWeight : 1);
+					if ((pr < cr) && (clear == 2)) relevance += cr - pr;
+					sum += scale * chartEstimator(cr, pr, clear, 1) * relevance;
 					totalRelevance += relevance;
 
-					if ((((pr < cr) && (chart.scores[k].second > 0)) || ((pr >= cr) && (chart.scores[k].second == 0))) &&
+					if ((((pr < cr) && (clear > 0)) || ((pr >= cr) && (clear == 0))) &&
 						(std::abs(pr - cr) < 5.F)) {
 						clearpc++;
 						clearsd += std::pow((cr - pr), 2.F);
