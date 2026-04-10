@@ -1,6 +1,7 @@
 ﻿#include <algorithm>
 #include <atomic>
 #include <charconv>
+#include <format>
 #include <iostream>
 #include <fstream>
 #include <ranges>
@@ -358,6 +359,9 @@ static void countChartCount() {
 			line.clear();
 		}
 	}
+	if (s.empty()) {
+		return 0;
+	}
 	// Something is funky with quotes but I don't care enough since it's only used for cosmetics. TODO: look for
 	// song name of 179ca83e83a13dceabb6fbcd093aa33c.
 	size_t field_index = 0;
@@ -611,7 +615,8 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 	return {};
 }
 
-static bool loadPlayerList(int mode) {
+// \return non-empty string on error
+static std::string loadPlayerList(int mode) {
 	std::string line_buf;
 	std::vector<std::string> csv_buf;
 
@@ -629,16 +634,14 @@ static bool loadPlayerList(int mode) {
 				continue;
 			}
 			if (auto z = split_csv(csv_buf, line_buf); !z) {
-				std::cout << std::to_string(line) << ": invalid csv field count in playerlist file: " << std::to_string(z) << "\n";
-				return 1;
+				return std::format("{}: invalid csv field count in playerlist file: {} == 0", line, z);
 			}
 			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
 				line_buf.pop_back();
 
 			auto lr2id = from_chars<int>(csv_buf[0]);
 			if (!lr2id) {
-				std::cout << std::to_string(line) << ": invalid 'lr2id'";
-				continue;
+				return std::format("{}: invalid 'lr2id': {}", line, csv_buf[0]);
 			}
 
 			lr2irplayers.push_back(*lr2id);
@@ -658,27 +661,22 @@ static bool loadPlayerList(int mode) {
 			if (line_buf.starts_with('#')) {
 				continue;
 			}
-			if (auto z = split_csv(csv_buf, line_buf); !z) {
-				std::cout << std::to_string(line) << ": invalid csv field count in playerlist file: " << std::to_string(z) << "\n";
-				return 1;
+			if (auto z = split_csv(csv_buf, line_buf); z == 0) {
+				return std::format("{}: invalid csv field count in playerlist file: {} == 0", line, z);
 			}
 			if (!line_buf.empty() && line_buf.back() == '\r') // on Linux getline splits on \n but files may be \r\n
 				line_buf.pop_back();
 
 			auto tachiid = from_chars<int>(csv_buf[0]);
-
-			std::string tachiid_concat;
-			tachiid_concat.append("t").append(std::to_string(*tachiid));
-
 			if (!tachiid) {
-				std::cout << std::to_string(line) << ": invalid 'lr2id'";
+				return std::format("{}: invalid 'tachiid': {}", line, csv_buf[0]);
 			}
 
-			bokutachiplayers.push_back(tachiid_concat);
+			bokutachiplayers.push_back(std::format("t{}", *tachiid));
 		}
 	}
 
-	return 0;
+	return {};
 }
 
 static bool runFullIterations() {
@@ -1138,8 +1136,8 @@ int main(int argc, char** argv)
 	}
 	std::cout << '\n';
 
-	if (loadPlayerList(mode)) {
-		std::cout << "loadPlayerList failed\n";
+	if (auto error = loadPlayerList(mode); !error.empty()) {
+		std::cout << "loadPlayerList failed: " << error << "\n";
 		return 1;
 	}
 
@@ -1152,7 +1150,7 @@ int main(int argc, char** argv)
 	for (int lr2id : lr2irplayers) {
 		recommend(lr2id, ignores);
 	}
-	for (std::string tachiid : bokutachiplayers) {
+	for (const std::string& tachiid : bokutachiplayers) {
 		recommendTachi(tachiid, ignores);
 	}
 }
