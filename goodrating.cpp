@@ -713,7 +713,7 @@ static bool runFullIterations() {
 
 	using Md5 = std::string;
 	using Lr2id = int;
-	std::unordered_map<Md5, std::unordered_map<Lr2id, float>> fail_weigths;
+	std::unordered_map<Md5, std::unordered_map<Lr2id, float>> fail_weights;
 	{
 		std::cout << "precomputing data..." << '\n';
 		auto beg = std::chrono::high_resolution_clock::now();
@@ -721,7 +721,7 @@ static bool runFullIterations() {
 		countChartCount();
 		for (const auto& [md5, chart] : songTable) {
 			for (const auto& [lr2id, _clear] : chart.scores) {
-				fail_weigths[md5][lr2id] = calcFailWeight(playerTable.at(lr2id), chart);
+				fail_weights[md5][lr2id] = calcFailWeight(playerTable.at(lr2id), chart);
 			}
 		}
 		std::cout << "precomputed data in "
@@ -846,7 +846,7 @@ static bool runFullIterations() {
 			for (auto & [lr2id, clear] : chart.scores) {
 				const Player& player = playerTable.at(lr2id);
 				float pr = player.rating;
-				float failWeight = fail_weigths.at(md5).at(lr2id);
+				float failWeight = fail_weights.at(md5).at(lr2id);
 				relevance = calcRelevance(pr, cr) * ((clear == 0) ? failWeight : 1);
 				if ((pr < cr) && (clear > 0)) relevance += cr - pr;
 				sum += scale * chartEstimator(cr, pr, clear, 0) * relevance;
@@ -884,7 +884,7 @@ static bool runFullIterations() {
 			for (auto & [lr2id, clear] : chart.scores) {
 				const Player& player = playerTable.find(lr2id)->second;
 				float pr = player.rating;
-				float failWeight = fail_weigths[md5][lr2id];
+				float failWeight = fail_weights[md5][lr2id];
 				relevance = calcRelevance(pr, cr) * ((clear < 2) ? failWeight : 1);
 				if ((pr < cr) && (clear == 2)) relevance += cr - pr;
 				sum += scale * chartEstimator(cr, pr, clear, 1) * relevance;

@@ -47,7 +47,7 @@ goodrating/
 
 ``<id>,<playerName>``
 
-playerName column is reserved for better human readibility and is not used in the code. Also, playerName should be in "" if one has any special characters.
+playerName column is reserved for better human readability and is not used in the code. Also, playerName should be in "" if one has any special characters.
 
 ## Producing dataset
 

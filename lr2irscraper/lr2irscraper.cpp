@@ -409,7 +409,7 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
         SqlitePtr db;
         std::atomic<size_t> total_fetched;
         int your_lr2id;
-        // No more work is coming, workers shold stop ocne they finish their work
+        // No more work is coming, workers should stop once they finish their work
         std::atomic<bool> should_stop;
         // We want to quit, workers should stop ASAP
         std::atomic<bool> force_stop;
