@@ -435,6 +435,7 @@ FodyWeavers.xsd
 input*/
 output*/
 goodrating.exe
+lr2irscraper.exe
 
 ## asjdfkjasdfkajsdfkja
 vcpkg_installed/
