@@ -497,14 +497,35 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 				return std::to_string(line) + ": invalid md5: " + md5;
 			}
 
+			auto fmt_error = [&](auto&& s) {
+				return std::format("{}: {}: {}: {}: {}", line, md5, table, level, s);
+			};
+
 			auto chart = songTable.find(md5);
 			if (chart == songTable.end()) {
-				return std::to_string(line) + ": song '" + md5 + "' mention in  was not found";
+				return fmt_error("chart table level for missing song");
 			}
-			chart->second.tablesFolders[table] = table_level_as_int[table][level];
+			auto levels_as_ints = table_level_as_int.find(table);
+			if (levels_as_ints == table_level_as_int.end()) {
+				return fmt_error("missing table for level as int");
+			}
+			auto level_as_int = levels_as_ints->second.find(level);
+			if (levels_as_ints == table_level_as_int.end()) {
+				return fmt_error("missing level as int");
+			}
+			auto level_ratings = table_level_rating.find(table);
+			if (level_ratings == table_level_rating.end()) {
+				return fmt_error("missing table for table level rating");
+			}
+			auto rating = level_ratings->second.find(level);
+			if (rating == level_ratings->second.end()) {
+				return fmt_error("missing table level rating");
+			}
+
+			chart->second.tablesFolders[table] = level_as_int->second;
 			// inherited from non-v2 but this is stupid as it may overwrite rating depending on
 			// order of data
-			chart->second.rating = table_level_rating[table][level];
+			chart->second.rating = rating->second;
 			chart->second.hcrating = chart->second.rating;
 		}
 	}
