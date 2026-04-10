@@ -434,8 +434,8 @@ FodyWeavers.xsd
 ## GOODRATING STUFF
 input*/
 output*/
-goodrating.exe
-lr2irscraper.exe
+*.dll
+*.exe
 
 ## asjdfkjasdfkajsdfkja
 vcpkg_installed/
