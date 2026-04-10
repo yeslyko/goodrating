@@ -1,4 +1,5 @@
 ﻿#include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <iostream>
 #include <fstream>
@@ -811,97 +812,82 @@ static bool runFullIterations() {
 		//run ec ratings for each file
 		calcTableAverages(tableAverages);
 
-#pragma omp parallel
-		{
-			float localEcMean = 0;
+		std::atomic<float> localEcMean = 0;
+#pragma omp parallel for
+		// NOLINTNEXTLINE(modernize-loop-convert) openmp
+		for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
+			auto& [md5, chart_] = songPtrs[i];
+			auto& chart = *chart_;
+			float sum = 0.f;
+			float cr = chart.rating;
+			float totalRelevance = 1.F;
+			float relevance = 0.F;
 
-#pragma omp for
-			// NOLINTNEXTLINE(modernize-loop-convert) openmp
-			for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
-				auto& [md5, chart_] = songPtrs[i];
-				auto& chart = *chart_;
-				float sum = 0.f;
-				float cr = chart.rating;
-				float totalRelevance = 1.F;
-				float relevance = 0.F;
-
-				for (auto & [lr2id, clear] : chart.scores) {
-					const Player& player = playerTable.at(lr2id);
-					float pr = player.rating;
-					float failWeight = fail_weigths.at(md5).at(lr2id);
-					relevance = calcRelevance(pr, cr) * ((clear == 0) ? failWeight : 1);
-					if ((pr < cr) && (clear > 0)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, clear, 0) * relevance;
-					totalRelevance += relevance;
-				}
-
-				const auto& [name, level] = *chart.tablesFolders.begin();
-				sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
-					chart.rating)) * fether;
-				sum /= totalRelevance;
-				sum += bad;
-				chart.rating += sum;
-				localEcMean += chart.rating;
+			for (auto & [lr2id, clear] : chart.scores) {
+				const Player& player = playerTable.at(lr2id);
+				float pr = player.rating;
+				float failWeight = fail_weigths.at(md5).at(lr2id);
+				relevance = calcRelevance(pr, cr) * ((clear == 0) ? failWeight : 1);
+				if ((pr < cr) && (clear > 0)) relevance += cr - pr;
+				sum += scale * chartEstimator(cr, pr, clear, 0) * relevance;
+				totalRelevance += relevance;
 			}
 
-#pragma omp critical
-			{
-				ecMean += localEcMean;
-			}
+			const auto& [name, level] = *chart.tablesFolders.begin();
+			sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
+						chart.rating)) * fether;
+			sum /= totalRelevance;
+			sum += bad;
+			chart.rating += sum;
+			localEcMean += chart.rating;
 		}
+		ecMean += localEcMean;
 
 		totalCharts += songTable.size();
 		ecMean /= static_cast<float>(totalCharts);
 		ecSigma = 0;
 
 		//run hc ratings for each file
-#pragma omp parallel
-		{
-			float localEcSigma = 0;
+		std::atomic<float> localEcSigma = 0;
+#pragma omp parallel for
+		// NOLINTNEXTLINE(modernize-loop-convert) openmp
+		for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
+			auto& [md5, chart_] = songPtrs[i];
+			auto& chart = *chart_;
+			float sum = 0.f;
+			float cr = chart.hcrating;
+			float clearsd = 0.f;
+			int clearpc = 0;
+			float totalRelevance = 1.F;
+			float relevance = 0.F;
 
-#pragma omp for
-			// NOLINTNEXTLINE(modernize-loop-convert) openmp
-			for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
-				auto& [md5, chart_] = songPtrs[i];
-				auto& chart = *chart_;
-				float sum = 0.f;
-				float cr = chart.hcrating;
-				float clearsd = 0.f;
-				int clearpc = 0;
-				float totalRelevance = 1.F;
-				float relevance = 0.F;
+			for (auto & [lr2id, clear] : chart.scores) {
+				const Player& player = playerTable.find(lr2id)->second;
+				float pr = player.rating;
+				float failWeight = fail_weigths[md5][lr2id];
+				relevance = calcRelevance(pr, cr) * ((clear < 2) ? failWeight : 1);
+				if ((pr < cr) && (clear == 2)) relevance += cr - pr;
+				sum += scale * chartEstimator(cr, pr, clear, 1) * relevance;
+				totalRelevance += relevance;
 
-				for (auto & [lr2id, clear] : chart.scores) {
-					const Player& player = playerTable.find(lr2id)->second;
-					float pr = player.rating;
-					float failWeight = fail_weigths[md5][lr2id];
-					relevance = calcRelevance(pr, cr) * ((clear < 2) ? failWeight : 1);
-					if ((pr < cr) && (clear == 2)) relevance += cr - pr;
-					sum += scale * chartEstimator(cr, pr, clear, 1) * relevance;
-					totalRelevance += relevance;
-
-					if ((((pr < cr) && (clear > 0)) || ((pr >= cr) && (clear == 0))) &&
+				if ((((pr < cr) && (clear > 0)) || ((pr >= cr) && (clear == 0))) &&
 						(std::abs(pr - cr) < 5.F)) {
-						clearpc++;
-						clearsd += std::pow((cr - pr), 2.F);
-					}
+					clearpc++;
+					clearsd += std::pow((cr - pr), 2.F);
 				}
-
-				chart.cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
-				const auto& [name, level] = *chart.tablesFolders.begin();
-				sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
-					chart.hcrating)) * fether;
-				sum /= totalRelevance;
-				sum += bad;
-				chart.hcrating += sum;
-				localEcSigma += std::pow(chart.rating - ecMean, 2.F);
 			}
 
-#pragma omp critical
-			{
-				ecSigma += localEcSigma;
-			}
+			chart.cleardiffsd = std::sqrt(clearsd / static_cast<float>(std::max(clearpc, 1)));
+			const auto& [name, level] = *chart.tablesFolders.begin();
+			sum -= (1.F - 2.F * clearProbability(tableAverages.at(name + std::to_string(level)).second,
+						chart.hcrating)) * fether;
+			sum /= totalRelevance;
+			sum += bad;
+			chart.hcrating += sum;
+			localEcSigma += std::pow(chart.rating - ecMean, 2.F);
 		}
+
+		ecSigma += localEcSigma;
 		iter--;
 
 		std::cout << "(" << helper - iter << "/" << helper << ") iterations completed..." << '\n';
