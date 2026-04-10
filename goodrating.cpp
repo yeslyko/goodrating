@@ -312,31 +312,21 @@ static void writePlayerData(const Player& player, bool useSupplement) {
 	std::cout << "wrote player data for " << (useSupplement ? player.supplement : std::to_string(player.lr2id)) << '\n';
 }
 
-static float guessRating(Chart& chart) {
-	bool isCleared = false;
-	float minRating = 999.F;
-	float maxRating = -999.F;
-	for (auto s : chart.scores) {
-		if (s.second != 0) isCleared = true;
-	}
-	/*
-	if (chart.scores.size() < 5) {
-		if (!isCleared) return -999;
-	}
-	*/
+static float guessRating(const Chart& chart) {
+	const bool isCleared = std::ranges::any_of(chart.scores, std::identity{}, &std::pair<int, int>::second);
 	if (isCleared) {
-		for (auto s : chart.scores) {
-			if (s.second == 0) continue;
-			minRating = std::min(playerTable.find(s.first)->second.rating, minRating);
+		float minRating = 999.F;
+		for (auto [lr2id, clear] : chart.scores) {
+			if (clear == 0) continue;
+			minRating = std::min(playerTable.find(lr2id)->second.rating, minRating);
 		}
 		return minRating;
 	}
-	else {
-		for (auto s : chart.scores) {
-			maxRating = std::max(playerTable.find(s.first)->second.rating, maxRating);
-		}
-		return maxRating;
+	float maxRating = -999.F;
+	for (auto [lr2id, _clear] : chart.scores) {
+		maxRating = std::max(playerTable.find(lr2id)->second.rating, maxRating);
 	}
+	return maxRating;
 }
 
 static void countFolderCompletions() {
