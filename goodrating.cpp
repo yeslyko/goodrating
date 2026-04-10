@@ -523,9 +523,9 @@ static std::string load_dataset(int mode, std::unordered_map<int, Player>& playe
 			}
 
 			chart->second.tablesFolders[table] = level_as_int->second;
-			// inherited from non-v2 but this is stupid as it may overwrite rating depending on
-			// order of data
-			chart->second.rating = rating->second;
+			// std::max is dumb but at least makes the output independent of input data order
+			// TODO: table priority?
+			chart->second.rating = std::max(rating->second, chart->second.rating);
 			chart->second.hcrating = chart->second.rating;
 		}
 	}
