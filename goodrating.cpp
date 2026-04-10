@@ -739,6 +739,7 @@ static bool runFullIterations() {
 	std::unordered_map<std::string, std::pair<int, float>> tableAverages;
 
 	std::vector<Player*> playerPtrs;
+	std::vector<std::pair<std::string, Chart*>> songPtrs;
 
 	//run estimation algorithm iterations
 	while (iter) {
@@ -760,6 +761,8 @@ static bool runFullIterations() {
 			playerEstimator(*playerPtrs[i]);
 		}
 		if (firstRun) {
+			std::cout << "first run precalculations..." << '\n';
+			auto beg = std::chrono::high_resolution_clock::now();
 			for (auto& g : songTable) {
 				if (g.second.rating != -1) continue;
 				float rating = guessRating(g.second);
@@ -796,6 +799,13 @@ static bool runFullIterations() {
 			firstRun = false;
 			removeList.clear();
 			removePlayerList.clear();
+			songPtrs.reserve(songTable.size());
+			for (auto& kv : songTable) {
+				songPtrs.emplace_back(kv.first, &kv.second);
+			}
+			std::cout << "first run calculations ended in "
+				<< std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - beg).count()
+				<< " seconds\n";
 		}
 
 		//run ec ratings for each file
@@ -806,9 +816,10 @@ static bool runFullIterations() {
 			float localEcMean = 0;
 
 #pragma omp for
-			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
-				auto it = std::next(songTable.begin(), i);
-				auto& [md5, chart] = *it;
+			// NOLINTNEXTLINE(modernize-loop-convert) openmp
+			for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
+				auto& [md5, chart_] = songPtrs[i];
+				auto& chart = *chart_;
 				float sum = 0.f;
 				float cr = chart.rating;
 				float totalRelevance = 1.F;
@@ -849,9 +860,10 @@ static bool runFullIterations() {
 			float localEcSigma = 0;
 
 #pragma omp for
-			for (int i = 0; i < static_cast<int>(songTable.size()); ++i) {
-				auto it = std::next(songTable.begin(), i);
-				auto& [md5, chart] = *it;
+			// NOLINTNEXTLINE(modernize-loop-convert) openmp
+			for (int i = 0; i < static_cast<int>(songPtrs.size()); ++i) {
+				auto& [md5, chart_] = songPtrs[i];
+				auto& chart = *chart_;
 				float sum = 0.f;
 				float cr = chart.hcrating;
 				float clearsd = 0.f;
