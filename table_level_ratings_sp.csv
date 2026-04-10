@@ -38,6 +38,8 @@ TableID,Level,LevelAsInt,Rating
 "spdystopia","9",9,40
 # baka
 "spdystopia","？",-1,-1
+# For old data sets
+"spdystopia","?",-1,-1
 "spgachimijoy","0",0,31.5
 "spgachimijoy","1",1,32.5
 "spgachimijoy","2",2,33.5
@@ -226,3 +228,17 @@ TableID,Level,LevelAsInt,Rating
 "spstella","7",7,35.7
 "spstella","8",8,36.3
 "spstella","9",9,36.9
+# For old data sets
+"sparmshougakkou","0",0,11.5
+"sparmshougakkou","1",1,13.1
+"sparmshougakkou","10",10,27.5
+"sparmshougakkou","11",11,29.1
+"sparmshougakkou","12",12,30.700000000000003
+"sparmshougakkou","2",2,14.7
+"sparmshougakkou","3",3,16.3
+"sparmshougakkou","4",4,17.9
+"sparmshougakkou","5",5,19.5
+"sparmshougakkou","6",6,21.1
+"sparmshougakkou","7",7,22.700000000000003
+"sparmshougakkou","8",8,24.3
+"sparmshougakkou","9",9,25.9
