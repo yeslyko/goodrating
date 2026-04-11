@@ -202,6 +202,16 @@ static void calcImportantFolderAverages() {
 
 static std::vector<std::pair<float, float>> folderNormalizer;
 
+static float findMedian(std::vector<float> vector) {
+	std::sort(vector.begin(), vector.end());
+	int size = vector.size();
+
+	if (size % 2 != 0)
+		return vector[size / 2];
+
+	return (vector[(size - 1) / 2] + vector[size / 2]) / 2.0;
+}
+
 static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalizer) {
 	//add normalization constants for each folder
 	std::string normal;
@@ -217,8 +227,7 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 	}
 
 	for (int i = 1; i < ((mode == 1) ? 37 : 25); i++) {
-		float flotsam = 0;
-		int count = 0;
+		std::vector<float> flotsam;
 		for (auto& [_, chart] : songTable) {
 			auto normal_it = chart.tablesFolders.find(normal);
 			auto insane_it = chart.tablesFolders.find(insane);
@@ -236,11 +245,10 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 			if (folder != i) {
 				continue;
 			}
-			flotsam += (chart.rating + summer) * scaler;
-			count++;
+			flotsam.emplace_back((chart.rating + summer) * scaler);
 		}
-		float avg = flotsam / static_cast<float>(count);
-		folderNormalizer->emplace_back(avg, (static_cast<float>(i) + 0.5F) - avg);
+		float median = findMedian(flotsam);
+		folderNormalizer->emplace_back(median, (static_cast<float>(i) + 0.5F) - median);
 	}
 }
 
