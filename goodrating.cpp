@@ -202,14 +202,14 @@ static void calcImportantFolderAverages() {
 
 static std::vector<std::pair<float, float>> folderNormalizer;
 
-static float findMedian(std::vector<float> vector) {
-	std::sort(vector.begin(), vector.end());
-	int size = vector.size();
-
+static float findMedian(std::span<float> vector) {
+	if (vector.empty())
+		return {};
+	std::ranges::sort(vector);
+	auto size = vector.size();
 	if (size % 2 != 0)
 		return vector[size / 2];
-
-	return (vector[(size - 1) / 2] + vector[size / 2]) / 2.0;
+	return (vector[(size - 1) / 2] + vector[size / 2]) / 2.0f;
 }
 
 static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNormalizer) {
@@ -226,8 +226,9 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 		insane = "insane";
 	}
 
+	std::vector<float> flotsam;
 	for (int i = 1; i < ((mode == 1) ? 37 : 25); i++) {
-		std::vector<float> flotsam;
+		flotsam.clear();
 		for (auto& [_, chart] : songTable) {
 			auto normal_it = chart.tablesFolders.find(normal);
 			auto insane_it = chart.tablesFolders.find(insane);
@@ -235,17 +236,13 @@ static void calcFolderNormalizers(std::vector<std::pair<float, float>>* folderNo
 			if (normal_it == end && insane_it == end) {
 				continue;
 			}
-			int folder = [&]() {
-				if (normal_it != chart.tablesFolders.end())
-					return normal_it->second;
-				return chart.tablesFolders.at(insane);
-			}();
+			int folder = normal_it != end ? normal_it->second : insane_it->second;
 			if (normal_it != end && folder > 11) continue;
 			if (insane_it != end) folder += 11;
 			if (folder != i) {
 				continue;
 			}
-			flotsam.emplace_back((chart.rating + summer) * scaler);
+			flotsam.push_back((chart.rating + summer) * scaler);
 		}
 		float median = findMedian(flotsam);
 		folderNormalizer->emplace_back(median, (static_cast<float>(i) + 0.5F) - median);
