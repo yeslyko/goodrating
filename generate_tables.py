@@ -74,7 +74,7 @@ def main():
             "level_order": tableOrder(),
             "data_url": "./ec_data.json"
         }
-        ec_header_string = json.dumps(header_content)
+        ec_header_string = json.dumps(header_content, indent=2)
         ec_header_file.write(ec_header_string)
         ec_header_file.close()
 
@@ -85,7 +85,7 @@ def main():
             "level_order": tableOrder(),
             "data_url": "./hc_data.json"
         }
-        hc_header_string = json.dumps(header_content)
+        hc_header_string = json.dumps(header_content, indent=2)
         hc_header_file.write(hc_header_string)
         hc_header_file.close()
 
