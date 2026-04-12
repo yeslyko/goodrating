@@ -596,6 +596,7 @@ PRAGMA synchronous=OFF;
             work_pool.force_stop = true;
         }
 
+        size_t song_count = 0;
         while (true)
         {
             ret = sqlite3_step(stmt);
@@ -617,6 +618,7 @@ PRAGMA synchronous=OFF;
                 break;
             }
 
+            song_count++;
             std::lock_guard lock{work_pool.queue_mutex};
             work_pool.queue.emplace(text);
         }
@@ -639,6 +641,8 @@ PRAGMA synchronous=OFF;
                 work_pool.force_stop = true;
             }
         }
+
+        std::println("produced {} fetch tasks", song_count);
     }
     else
     {
