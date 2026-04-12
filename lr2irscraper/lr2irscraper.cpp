@@ -309,7 +309,7 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
     return {};
 }
 
-[[nodiscard]] static std::expected<void, ErrorDescription> insert_nicknames(sqlite3* db, Md5 md5, const GoodResult& val,
+[[nodiscard]] static std::expected<void, ErrorDescription> insert_nicknames(sqlite3* db, const GoodResult& val,
                                                                             int64_t request_time)
 {
     constexpr auto insert_nickname_sql = "INSERT INTO nicknames(lr2id, name, fetch_timestamp) VALUES (?1, ?2, ?3) "
@@ -415,7 +415,8 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
         std::atomic<bool> force_stop;
     };
 
-    WorkPool work_pool{.your_lr2id = your_lr2id};
+    WorkPool work_pool;
+    work_pool.your_lr2id = your_lr2id;
 
     {
         sqlite3* db_;
@@ -512,7 +513,7 @@ PRAGMA synchronous=OFF;
                         errors.emplace_back("insert_scrapes: " + ok.error().msg, request_time);
                         work_pool.force_stop = true;
                     }
-                    if (auto ok = insert_nicknames(work_pool.db.get(), md5_to_fetch, *val, request_time); !ok)
+                    if (auto ok = insert_nicknames(work_pool.db.get(), *val, request_time); !ok)
                     {
                         errors.emplace_back("insert_nicknames: " + ok.error().msg, request_time);
                         work_pool.force_stop = true;
@@ -677,7 +678,7 @@ PRAGMA synchronous=OFF;
     }
 #ifdef __linux__
     struct sigaction sa;
-    sa.sa_handler = [](int signum) { interrupted = true; };
+    sa.sa_handler = [](int /*signum*/) { interrupted = true; };
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
     if (sigaction(SIGINT, &sa, nullptr) == -1)
