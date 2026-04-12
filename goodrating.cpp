@@ -367,31 +367,29 @@ static void countChartCount() {
 	if (s.empty()) {
 		return 0;
 	}
-	// Something is funky with quotes but I don't care enough since it's only used for cosmetics. TODO: look for
-	// song name of 179ca83e83a13dceabb6fbcd093aa33c.
 	size_t field_index = 0;
-	bool prev_is_quote = false;
 	bool inside_quote = false;
-	for (char c : s) {
+	for (size_t i = 0; i < s.size(); ++i) {
+		char c = s[i];
 		if (c == '"') {
-			if (inside_quote && prev_is_quote) {
+			if (inside_quote && i + 1 < s.size() && s[i + 1] == '"') {
 				// escaped quote
-				prev_is_quote = false;
-				buf[field_index].push_back(c);
+				buf[field_index].push_back('"');
+				++i;
 			} else {
 				inside_quote = !inside_quote;
-				prev_is_quote = true;
 			}
 		} else if (c == ',' && !inside_quote) {
-			prev_is_quote = false;
 			field_index++;
 			if (buf.size() < field_index + 1) {
 				buf.emplace_back();
 			}
 		} else {
-			prev_is_quote = false;
 			buf[field_index].push_back(c);
 		}
+	}
+	if (inside_quote) { // invalid csv
+		return 0;
 	}
 	return field_index + 1;
 }
@@ -1134,6 +1132,26 @@ static void recommendTachi(const std::string& id, const std::vector<std::string>
 	}
 }
 
+static int main_test()
+{
+	std::vector<std::string> csv_buf;
+
+	if (auto z = split_csv(csv_buf, R"("179ca83e83a13dceabb6fbcd093aa33c","少女の檻 ""Last Night, Last Dancing.""")");
+			z != 2 || csv_buf != std::vector<std::string>{"179ca83e83a13dceabb6fbcd093aa33c", R"(少女の檻 "Last Night, Last Dancing.")"})
+	{
+		std::cout << "csv parsed incorrectly:" << z << '\n';
+		return 1;
+	}
+
+	if (auto z = split_csv(csv_buf, R"(""")"); z != 0)
+	{
+		std::cout << "parsed incorrect csv: " << z << '\n';
+		return 1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	constexpr auto&& usage = "{sp/dp} {table_to_ignore..}";
@@ -1147,6 +1165,8 @@ int main(int argc, char** argv)
 		mode = 1;
 	else if (moder == "dp")
 		mode = 2;
+	else if (moder == "test")
+		return main_test();
 	else
 		return std::cout << usage << '\n', 1;
 	std::cout << "mode: " << mode << '\n';
