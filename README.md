@@ -67,6 +67,8 @@ The scripts for producing datasets are in repository already. The order in which
 - producedata.sh
 - (optional) generateseeds.sh (only used in case if you added a new table to the gettabledata.sh, make sure to revert irrelevant updates with git after that)
 
+If you have an old dataset, you can convert it to a newer format using `v2_from_v1.py` script, which is in repository as well.
+
 ## Credits:
 
 - [snoverpk](https://github.com/snoverpkg) - initial idea, math behind difficulty estimation algorithm
