@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# remove this if you are not on MSYS (allows to use binaries from current directory)
+# allow using binaries from current directory
 export PATH=$PATH:.
 
 my_lr2id=${1?your lr2id}

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# remove this if you are not on MSYS (allows to use binaries from current directory)
+# allow using binaries from current directory
 export PATH=$PATH:.
 
 songdb=${1?your path to song.db in LR2files directory} 

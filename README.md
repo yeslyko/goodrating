@@ -56,7 +56,7 @@ playerName column is reserved for better human readability and is not used in th
 
 ## Producing dataset
 
-The scripts for producing datasets are in repository already. If you are a Linux (or any Unix operating system) user, delete ``export PATH=$PATH:.`` lines in scripts, as those are for Windows (under MSYS) users only. The order in which scripts should be run is this:
+The scripts for producing datasets are in repository already. The order in which scripts should be run is this:
 
 - gettabledata.sh
 - scrapeir_start.sh (scrapeir_continue.sh in case if start script was interrupted)
