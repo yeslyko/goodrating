@@ -299,7 +299,7 @@ static void writePlayerData(const Player& player, bool useSupplement) {
 		std::cout << "!playerData.is_open()\n";
 		return;
 	}
-	playerData << "md5;chart name;rating;hcrating;adjRating;adjHcRating;clear.second" << '\n';
+	playerData << "md5;chart name;rating;hcrating;adjRating;adjHcRating;clear" << '\n';
 	for (auto& [md5, clear] : player.clears) {
 		auto chartIter = songTable.find(md5);
 		if (chartIter == songTable.end()) continue;
@@ -941,7 +941,7 @@ static bool runFullIterations() {
 		std::cout << "!CRTable.is_open()\n";
 		return true;
 	}
-	CRTable << "table;level3;rating;hcrating;adjEC;adjHC;cleardiffsd;name;md5\n";
+	CRTable << "table;level;rating;hcrating;adjEC;adjHC;cleardiffsd;name;md5\n";
 	for (auto& [md5, chart] : songTable) {
 		float adjEC = adjRating((chart.rating + summer) * scaler, &folderNormalizer);
 		float adjHC = adjRating((chart.hcrating + summer) * scaler, &folderNormalizer);
