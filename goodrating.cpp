@@ -11,7 +11,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <math.h>
-#include <algorithm>
 #include <filesystem>
 #include <vector>
 #include <chrono>
