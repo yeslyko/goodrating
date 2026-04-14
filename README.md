@@ -67,7 +67,10 @@ The scripts for producing datasets are in repository already. The order in which
 - producedata.sh
 - (optional) generateseeds.sh (only used in case if you added a new table to the gettabledata.sh, make sure to revert irrelevant updates with git after that)
 
-If you have an old dataset, you can convert it to a newer format using `v2_from_v1.py` script, which is in repository as well.
+## Extras
+
+- `v2_from_1.py` - If you have an old dataset, use it to convert to a new dataset format.
+- `generate_tables.py` - Converts output/{mode}/charts.csv to a table. You can add it in LR2 OxyTabler by adding this URL: `file://path/to/your/goodrating/output/{mode}/{ec/hc}_header.json`
 
 ## Credits:
 
