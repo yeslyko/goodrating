@@ -13,6 +13,6 @@ for playstyle in spv2 dpv2; do
 done
 
 for playstyle in spv2 dpv2; do
-    sqlite3 ./input/$playstyle/lr2irscraper-output.db -header -csv "SELECT lr2id, name FROM nicknames ORDER BY lr2id" > ./input/$playstyle/lr2ir_players.csv
-    sqlite3 ./input/$playstyle/lr2irscraper-output.db -header -csv "SELECT md5, lr2id, lamp FROM scrapes ORDER BY lr2id" > ./input/$playstyle/lr2ir_scores.csv
+    sqlite3 ./input/$playstyle/lr2irscraper-output.db -csv -header "SELECT lr2id, name FROM nicknames ORDER BY lr2id" > ./input/$playstyle/lr2ir_players.csv
+    sqlite3 ./input/$playstyle/lr2irscraper-output.db -csv -header "SELECT md5, lr2id, lamp FROM scrapes ORDER BY lr2id" > ./input/$playstyle/lr2ir_scores.csv
 done
