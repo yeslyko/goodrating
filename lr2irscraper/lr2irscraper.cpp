@@ -30,6 +30,8 @@ using namespace std::string_view_literals;
 static constexpr int notify_every_this_fetches = 200;
 static constexpr int requests_per_second = 20; // RPS
 static constexpr int max_attempts = 5;
+static constexpr auto&& begin_sql = "BEGIN TRANSACTION;";
+static constexpr auto&& commit_sql = "COMMIT;";
 
 #ifdef __linux__
 #include <signal.h>
@@ -303,6 +305,10 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
         "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) "
         "ON CONFLICT(md5, lr2id) DO UPDATE "
         "SET md5 = ?1, lr2id = ?2, lamp = ?3, combo = ?4, minbp = ?5, notes = ?6, pgreat = ?7, great = ?8, fetch_timestamp = ?9"sv;
+
+    sqlite3_exec(db, begin_sql, nullptr, nullptr, nullptr);
+    auto _commit_sql = mk_defer([db]() { sqlite3_exec(db, commit_sql, nullptr, nullptr, nullptr); });
+
     sqlite3_stmt* stmt = nullptr;
     auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
     int ret = sqlite3_prepare_v3(db, insert_scrape_sql.data(), insert_scrape_sql.size(), 0, &stmt, nullptr);
@@ -339,6 +345,10 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
     constexpr auto insert_nickname_sql = "INSERT INTO nicknames(lr2id, name, fetch_timestamp) VALUES (?1, ?2, ?3) "
                                          "ON CONFLICT(lr2id) DO UPDATE "
                                          "SET lr2id = ?1, name = ?2, fetch_timestamp = ?3"sv;
+
+    sqlite3_exec(db, begin_sql, nullptr, nullptr, nullptr);
+    auto _commit_sql = mk_defer([db]() { sqlite3_exec(db, commit_sql, nullptr, nullptr, nullptr); });
+
     sqlite3_stmt* stmt = nullptr;
     auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
     int ret = sqlite3_prepare_v3(db, insert_nickname_sql.data(), insert_nickname_sql.size(), 0, &stmt, nullptr);
@@ -368,6 +378,10 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
     constexpr auto insert_to_retry_sql = "INSERT INTO to_retry(md5, reason) VALUES (?1, ?2) "
                                          "ON CONFLICT(md5) DO UPDATE "
                                          "SET md5 = ?1, reason = ?2"sv;
+
+    sqlite3_exec(db, begin_sql, nullptr, nullptr, nullptr);
+    auto _commit_sql = mk_defer([db]() { sqlite3_exec(db, commit_sql, nullptr, nullptr, nullptr); });
+
     sqlite3_stmt* stmt = nullptr;
     auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
     int ret = sqlite3_prepare_v3(db, insert_to_retry_sql.data(), insert_to_retry_sql.size(), 0, &stmt, nullptr);
@@ -556,6 +570,10 @@ static std::expected<void, ErrorDescription> mass_insert_to_retry(WorkPool& work
     constexpr auto insert_to_retry_sql = "INSERT INTO to_retry(md5, reason) VALUES (?1, ?2) "
                                          "ON CONFLICT(md5) DO UPDATE "
                                          "SET md5 = ?1, reason = ?2"sv;
+
+    sqlite3_exec(db, begin_sql, nullptr, nullptr, nullptr);
+    auto _commit_sql = mk_defer([db]() { sqlite3_exec(db, commit_sql, nullptr, nullptr, nullptr); });
+
     constexpr auto error = "early-exit"sv;
     sqlite3_stmt* stmt = nullptr;
     auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
