@@ -27,6 +27,10 @@
 
 using namespace std::string_view_literals;
 
+static constexpr int notify_every_this_fetches = 200;
+static constexpr int requests_per_second = 20; // RPS
+static constexpr int max_attempts = 5;
+
 #ifdef __linux__
 #include <signal.h>
 
@@ -382,6 +386,226 @@ template <class F> [[nodiscard]] static Defer<F> mk_defer(F f)
     return {};
 }
 
+struct SqliteDeleter
+{
+    void operator()(sqlite3* db) { sqlite3_close(db); }
+};
+using SqlitePtr = std::unique_ptr<sqlite3, SqliteDeleter>;
+
+struct WorkPool
+{
+    std::queue<Md5> queue;
+    std::mutex queue_mutex;
+    std::vector<std::tuple<Md5, GoodResult, int64_t>> out_queue;
+    std::vector<std::pair<Md5, std::string>> out_error_queue;
+    std::mutex out_queues_mutex;
+    std::atomic<size_t> total_fetched;
+    std::atomic<size_t> workers_alive;
+    int your_lr2id;
+    // No more work is coming, workers should stop once they finish their work
+    std::atomic<bool> should_stop;
+    // We want to quit, workers should stop ASAP
+    std::atomic<bool> force_stop;
+};
+
+static void work(WorkPool* work_pool_, const unsigned worker_count)
+{
+    auto& work_pool = *work_pool_;
+    const size_t worker = work_pool.workers_alive++;
+    auto _bye_worker = mk_defer([&work_pool]() { work_pool.workers_alive--; });
+    SetThreadName(std::format("worker {}", worker).c_str());
+
+    std::mt19937 jitter_gen{std::random_device{}()};
+
+    std::vector<std::pair<std::string, int64_t>> errors;
+    while (!work_pool.should_stop && !work_pool.force_stop)
+    {
+        Md5 md5_to_fetch;
+        {
+            std::unique_lock lock{work_pool.queue_mutex};
+            if (work_pool.queue.empty())
+            {
+                lock.unlock();
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            md5_to_fetch = work_pool.queue.front();
+            work_pool.queue.pop();
+        }
+
+        errors.clear();
+        for (int attempt = 0; attempt < max_attempts; ++attempt)
+        {
+            const auto request_time = std::chrono::duration_cast<std::chrono::seconds>(
+                                          std::chrono::high_resolution_clock::now().time_since_epoch())
+                                          .count();
+            auto val =
+                fetch(work_pool.your_lr2id, md5_to_fetch).and_then([](std::string&& s) { return parse(std::span{s}); });
+            if (val)
+            {
+                std::unique_lock lock{work_pool.out_queues_mutex};
+                work_pool.out_queue.emplace_back(md5_to_fetch, std::move(val->scores), request_time);
+                break;
+            }
+            else
+            {
+                errors.emplace_back(std::move(val.error().msg), request_time);
+            }
+
+            if (work_pool.force_stop) // after finishing work
+                break;
+
+            // simplest rate limiting ever. kinda bursty but who cares.
+            constexpr int max_jitter = 500;
+            std::this_thread::sleep_for(
+                (std::chrono::milliseconds(1000) / requests_per_second * worker_count) +
+                std::chrono::milliseconds(std::uniform_int_distribution{0, max_jitter}(jitter_gen)));
+        }
+
+        auto concat_errors = [](std::span<std::pair<std::string, int64_t>> errors) {
+            std::string error;
+            for (bool first = true; const auto& [error_, timestamp] : errors)
+            {
+                if (!first)
+                    error += "|";
+                error += '[';
+                error += std::to_string(timestamp);
+                error += ']';
+                error += error_;
+                first = false;
+            }
+            return error;
+        };
+
+        if (auto error = concat_errors(errors); !error.empty())
+        {
+            std::unique_lock lock{work_pool.out_queues_mutex};
+            work_pool.out_error_queue.emplace_back(md5_to_fetch, std::move(error));
+        }
+
+        auto fetched = ++work_pool.total_fetched;
+        if (fetched % notify_every_this_fetches == 0)
+        {
+            const size_t count = [&work_pool]() {
+                std::lock_guard lock{work_pool.queue_mutex};
+                return work_pool.queue.size();
+            }();
+            // even jitter is not included not to mention this should use actual request count so the value is
+            // scuffed
+            const auto seconds_left = count / requests_per_second;
+            std::println("fetched scores for {} charts so far... ({} left ~{:02}:{:02})", fetched, count,
+                         seconds_left / 60, seconds_left % 60);
+        }
+    }
+};
+
+static void work_sql(WorkPool* work_pool_, sqlite3* db)
+{
+    auto& work_pool = *work_pool_;
+    std::vector<std::tuple<Md5, GoodResult, int64_t>> vals;
+    std::vector<std::pair<Md5, std::string>> errors;
+    // no 'should_stop', fetch workers may still want to insert some data
+    while (!work_pool.force_stop)
+    {
+        {
+            std::unique_lock lock{work_pool.out_queues_mutex};
+            vals.insert(vals.end(), std::make_move_iterator(work_pool.out_queue.begin()),
+                        std::make_move_iterator(work_pool.out_queue.end()));
+            work_pool.out_queue.clear();
+            errors.insert(errors.end(), std::make_move_iterator(work_pool.out_error_queue.begin()),
+                          std::make_move_iterator(work_pool.out_error_queue.end()));
+            work_pool.out_error_queue.clear();
+        }
+
+        if (vals.empty() && errors.empty())
+        {
+            if (work_pool.workers_alive == 0)
+                break; // done
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+
+        for (auto&& [md5, error] : errors)
+        {
+            if (auto ok = insert_to_retry(db, md5, error); !ok)
+            {
+                std::println("insert_to_retry: {}", ok.error().msg);
+                work_pool.force_stop = true;
+            }
+        }
+        errors.clear();
+
+        for (auto&& [md5, val, request_time] : vals)
+        {
+            if (auto ok = insert_scrapes(db, md5, val, request_time); !ok)
+            {
+                std::println("insert_scrapes: ", ok.error().msg, request_time);
+                work_pool.force_stop = true;
+            }
+            if (auto ok = insert_nicknames(db, val, request_time); !ok)
+            {
+                std::println("insert_nicknames: ", ok.error().msg, request_time);
+                work_pool.force_stop = true;
+            }
+        }
+        vals.clear();
+    }
+};
+
+static std::expected<void, ErrorDescription> mass_insert_to_retry(WorkPool& work_pool, sqlite3* db)
+{
+    constexpr auto insert_to_retry_sql = "INSERT INTO to_retry(md5, reason) VALUES (?1, ?2) "
+                                         "ON CONFLICT(md5) DO UPDATE "
+                                         "SET md5 = ?1, reason = ?2"sv;
+    constexpr auto error = "early-exit"sv;
+    sqlite3_stmt* stmt = nullptr;
+    auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
+    int ret = sqlite3_prepare_v3(db, insert_to_retry_sql.data(), insert_to_retry_sql.size(), 0, &stmt, nullptr);
+    if (ret != 0)
+        return std::unexpected{ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db), ret)}};
+    if (ret != 0)
+        return std::unexpected{ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db), ret)}};
+    while (!work_pool.queue.empty())
+    {
+        const auto& task = work_pool.queue.front();
+
+        sqlite3_bind_text(stmt, 1, task.as_string_view().data(), task.as_string_view().size(), nullptr);
+        sqlite3_bind_text(stmt, 2, error.data(), error.size(), nullptr);
+        ret = sqlite3_step(stmt);
+        if (ret != SQLITE_DONE)
+            return std::unexpected{ErrorDescription{std::format("sqlite3_step: {} ({})", sqlite3_errmsg(db), ret)}};
+        ret = sqlite3_reset(stmt);
+        if (ret != SQLITE_OK)
+            return std::unexpected{ErrorDescription{std::format("sqlite3_reset: {} ({})", sqlite3_errmsg(db), ret)}};
+
+        work_pool.queue.pop();
+    }
+    ret = sqlite3_finalize(stmt);
+    stmt = nullptr;
+    if (ret != SQLITE_OK)
+        return std::unexpected{ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db), ret)}};
+    return {};
+};
+
+static std::expected<int64_t, ErrorDescription> select_to_retry_count(sqlite3* db)
+{
+    constexpr auto select_to_retry_count_sql = "SELECT count(1) FROM to_retry"sv;
+    sqlite3_stmt* stmt = nullptr;
+    auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
+    int ret =
+        sqlite3_prepare_v3(db, select_to_retry_count_sql.data(), select_to_retry_count_sql.size(), 0, &stmt, nullptr);
+    if (ret != 0)
+        return std::unexpected{ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db), ret)}};
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_ROW)
+        return std::unexpected{ErrorDescription{std::format("sqlite error: {} ({})", sqlite3_errmsg(db), ret)}};
+    const int64_t out = sqlite3_column_int64(stmt, 0);
+    ret = sqlite3_finalize(stmt);
+    stmt = nullptr;
+    if (ret != SQLITE_OK)
+        return std::unexpected{ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db), ret)}};
+    return out;
+};
+
 static std::atomic<bool> interrupted;
 #ifdef _WIN32
 BOOL WINAPI console_ctrl_handler(DWORD ctrl)
@@ -419,28 +643,6 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
     if (your_lr2id > 999'999)
         return std::println("invalid 'your_lr2id': above 999999: {}", your_lr2id), 1;
     const char* md5list_path = args.size() == 4 ? args[3] : nullptr;
-
-    struct SqliteDeleter
-    {
-        void operator()(sqlite3* db) { sqlite3_close(db); }
-    };
-    using SqlitePtr = std::unique_ptr<sqlite3, SqliteDeleter>;
-
-    struct WorkPool
-    {
-        std::queue<Md5> queue;
-        std::mutex queue_mutex;
-        std::vector<std::tuple<Md5, GoodResult, int64_t>> out_queue;
-        std::vector<std::pair<Md5, std::string>> out_error_queue;
-        std::mutex out_queues_mutex;
-        std::atomic<size_t> total_fetched;
-        std::atomic<size_t> workers_alive;
-        int your_lr2id;
-        // No more work is coming, workers should stop once they finish their work
-        std::atomic<bool> should_stop;
-        // We want to quit, workers should stop ASAP
-        std::atomic<bool> force_stop;
-    };
 
     WorkPool work_pool;
     work_pool.your_lr2id = your_lr2id;
@@ -492,152 +694,7 @@ PRAGMA synchronous=OFF;
         return 1;
     }
 
-    static constexpr int notify_every_this_fetches = 200;
-    static constexpr int requests_per_second = 20; // RPS
-    static constexpr int max_attempts = 5;
     static constexpr unsigned worker_cap = 16u;
-
-    auto work = [](WorkPool* work_pool_, const unsigned worker_count) {
-        auto& work_pool = *work_pool_;
-        const size_t worker = work_pool.workers_alive++;
-        auto _bye_worker = mk_defer([&work_pool]() { work_pool.workers_alive--; });
-        SetThreadName(std::format("worker {}", worker).c_str());
-
-        std::mt19937 jitter_gen{std::random_device{}()};
-
-        std::vector<std::pair<std::string, int64_t>> errors;
-        while (!work_pool.should_stop && !work_pool.force_stop)
-        {
-            Md5 md5_to_fetch;
-            {
-                std::unique_lock lock{work_pool.queue_mutex};
-                if (work_pool.queue.empty())
-                {
-                    lock.unlock();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    continue;
-                }
-                md5_to_fetch = work_pool.queue.front();
-                work_pool.queue.pop();
-            }
-
-            errors.clear();
-            for (int attempt = 0; attempt < max_attempts; ++attempt)
-            {
-                const auto request_time = std::chrono::duration_cast<std::chrono::seconds>(
-                                              std::chrono::high_resolution_clock::now().time_since_epoch())
-                                              .count();
-                auto val = fetch(work_pool.your_lr2id, md5_to_fetch).and_then([](std::string&& s) {
-                    return parse(std::span{s});
-                });
-                if (val)
-                {
-                    std::unique_lock lock{work_pool.out_queues_mutex};
-                    work_pool.out_queue.emplace_back(md5_to_fetch, std::move(val->scores), request_time);
-                    break;
-                }
-                else
-                {
-                    errors.emplace_back(std::move(val.error().msg), request_time);
-                }
-
-                if (work_pool.force_stop) // after finishing work
-                    break;
-
-                // simplest rate limiting ever. kinda bursty but who cares.
-                constexpr int max_jitter = 500;
-                std::this_thread::sleep_for(
-                    (std::chrono::milliseconds(1000) / requests_per_second * worker_count) +
-                    std::chrono::milliseconds(std::uniform_int_distribution{0, max_jitter}(jitter_gen)));
-            }
-
-            auto concat_errors = [](std::span<std::pair<std::string, int64_t>> errors) {
-                std::string error;
-                for (bool first = true; const auto& [error_, timestamp] : errors)
-                {
-                    if (!first)
-                        error += "|";
-                    error += '[';
-                    error += std::to_string(timestamp);
-                    error += ']';
-                    error += error_;
-                    first = false;
-                }
-                return error;
-            };
-
-            if (auto error = concat_errors(errors); !error.empty())
-            {
-                std::unique_lock lock{work_pool.out_queues_mutex};
-                work_pool.out_error_queue.emplace_back(md5_to_fetch, std::move(error));
-            }
-
-            auto fetched = ++work_pool.total_fetched;
-            if (fetched % notify_every_this_fetches == 0)
-            {
-                const size_t count = [&work_pool]() {
-                    std::lock_guard lock{work_pool.queue_mutex};
-                    return work_pool.queue.size();
-                }();
-                // even jitter is not included not to mention this should use actual request count so the value is
-                // scuffed
-                const auto seconds_left = count / requests_per_second;
-                std::println("fetched scores for {} charts so far... ({} left ~{:02}:{:02})", fetched, count,
-                             seconds_left / 60, seconds_left % 60);
-            }
-        }
-    };
-
-    auto work_sql = [](WorkPool* work_pool_, sqlite3* db) {
-        auto& work_pool = *work_pool_;
-        std::vector<std::tuple<Md5, GoodResult, int64_t>> vals;
-        std::vector<std::pair<Md5, std::string>> errors;
-        // no 'should_stop', fetch workers may still want to insert some data
-        while (!work_pool.force_stop)
-        {
-            {
-                std::unique_lock lock{work_pool.out_queues_mutex};
-                vals.insert(vals.end(), std::make_move_iterator(work_pool.out_queue.begin()),
-                            std::make_move_iterator(work_pool.out_queue.end()));
-                work_pool.out_queue.clear();
-                errors.insert(errors.end(), std::make_move_iterator(work_pool.out_error_queue.begin()),
-                              std::make_move_iterator(work_pool.out_error_queue.end()));
-                work_pool.out_error_queue.clear();
-            }
-
-            if (vals.empty() && errors.empty())
-            {
-                if (work_pool.workers_alive == 0)
-                    break; // done
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            }
-
-            for (auto&& [md5, error] : errors)
-            {
-                if (auto ok = insert_to_retry(db, md5, error); !ok)
-                {
-                    std::println("insert_to_retry: {}", ok.error().msg);
-                    work_pool.force_stop = true;
-                }
-            }
-            errors.clear();
-
-            for (auto&& [md5, val, request_time] : vals)
-            {
-                if (auto ok = insert_scrapes(db, md5, val, request_time); !ok)
-                {
-                    std::println("insert_scrapes: ", ok.error().msg, request_time);
-                    work_pool.force_stop = true;
-                }
-                if (auto ok = insert_nicknames(db, val, request_time); !ok)
-                {
-                    std::println("insert_nicknames: ", ok.error().msg, request_time);
-                    work_pool.force_stop = true;
-                }
-            }
-            vals.clear();
-        }
-    };
 
     std::vector<std::jthread> workers;
     {
@@ -773,70 +830,11 @@ PRAGMA synchronous=OFF;
     work_pool.should_stop = true;
     workers.clear();
 
-    auto mass_insert_to_retry = [&]() -> std::expected<void, ErrorDescription> {
-        constexpr auto insert_to_retry_sql = "INSERT INTO to_retry(md5, reason) VALUES (?1, ?2) "
-                                             "ON CONFLICT(md5) DO UPDATE "
-                                             "SET md5 = ?1, reason = ?2"sv;
-        constexpr auto error = "early-exit"sv;
-        sqlite3_stmt* stmt = nullptr;
-        auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
-        int ret =
-            sqlite3_prepare_v3(db.get(), insert_to_retry_sql.data(), insert_to_retry_sql.size(), 0, &stmt, nullptr);
-        if (ret != 0)
-            return std::unexpected{
-                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db.get()), ret)}};
-        if (ret != 0)
-            return std::unexpected{
-                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db.get()), ret)}};
-        while (!work_pool.queue.empty())
-        {
-            const auto& task = work_pool.queue.front();
-
-            sqlite3_bind_text(stmt, 1, task.as_string_view().data(), task.as_string_view().size(), nullptr);
-            sqlite3_bind_text(stmt, 2, error.data(), error.size(), nullptr);
-            ret = sqlite3_step(stmt);
-            if (ret != SQLITE_DONE)
-                return std::unexpected{
-                    ErrorDescription{std::format("sqlite3_step: {} ({})", sqlite3_errmsg(db.get()), ret)}};
-            ret = sqlite3_reset(stmt);
-            if (ret != SQLITE_OK)
-                return std::unexpected{
-                    ErrorDescription{std::format("sqlite3_reset: {} ({})", sqlite3_errmsg(db.get()), ret)}};
-
-            work_pool.queue.pop();
-        }
-        ret = sqlite3_finalize(stmt);
-        stmt = nullptr;
-        if (ret != SQLITE_OK)
-            return std::unexpected{
-                ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db.get()), ret)}};
-        return {};
-    };
-
     // save charts to fetch in case of an early exit like Ctrl+C
     if (!work_pool.queue.empty())
-        if (auto ok = mass_insert_to_retry(); !ok)
+        if (auto ok = mass_insert_to_retry(work_pool, db.get()); !ok)
             std::println("mass_insert_to_retry: {}", ok.error().msg);
 
-    auto select_to_retry_count = [](sqlite3* db) -> std::expected<int64_t, ErrorDescription> {
-        constexpr auto select_to_retry_count_sql = "SELECT count(1) FROM to_retry"sv;
-        sqlite3_stmt* stmt = nullptr;
-        auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
-        int ret = sqlite3_prepare_v3(db, select_to_retry_count_sql.data(), select_to_retry_count_sql.size(), 0, &stmt,
-                                     nullptr);
-        if (ret != 0)
-            return std::unexpected{
-                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db), ret)}};
-        ret = sqlite3_step(stmt);
-        if (ret != SQLITE_ROW)
-            return std::unexpected{ErrorDescription{std::format("sqlite error: {} ({})", sqlite3_errmsg(db), ret)}};
-        const int64_t out = sqlite3_column_int64(stmt, 0);
-        ret = sqlite3_finalize(stmt);
-        stmt = nullptr;
-        if (ret != SQLITE_OK)
-            return std::unexpected{ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db), ret)}};
-        return out;
-    };
     if (work_pool.force_stop)
         std::println("emergency landing! you should start scraping from scratch now :(");
     else if (auto ok = select_to_retry_count(db.get()); !ok)
