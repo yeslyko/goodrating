@@ -4,6 +4,7 @@
 #include <expected>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <mutex>
 #include <print>
 #include <queue>
@@ -14,6 +15,8 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <cpr/cpr.h>
@@ -427,10 +430,11 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
     {
         std::queue<Md5> queue;
         std::mutex queue_mutex;
-        // THREAD-SAFETY: SQLite uses serialized mode by default. https://sqlite.org/threadsafe.html
-        // This works good enough for us as we limit RPS conservatively, but likely wastes resources.
-        SqlitePtr db;
+        std::vector<std::tuple<Md5, GoodResult, int64_t>> out_queue;
+        std::vector<std::pair<Md5, std::string>> out_error_queue;
+        std::mutex out_queues_mutex;
         std::atomic<size_t> total_fetched;
+        std::atomic<size_t> workers_alive;
         int your_lr2id;
         // No more work is coming, workers should stop once they finish their work
         std::atomic<bool> should_stop;
@@ -441,18 +445,19 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
     WorkPool work_pool;
     work_pool.your_lr2id = your_lr2id;
 
+    SqlitePtr db;
     {
         sqlite3* db_;
         int ret = sqlite3_open(db_path, &db_);
-        work_pool.db.reset(db_);
+        db.reset(db_);
         if (ret != SQLITE_OK)
         {
-            std::println("sqlite3_open: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+            std::println("sqlite3_open: {} ({})", sqlite3_errmsg(db.get()), ret);
             return 1;
         }
     }
 
-    int ret = sqlite3_exec(work_pool.db.get(), R"(
+    int ret = sqlite3_exec(db.get(), R"(
 CREATE TABLE IF NOT EXISTS scrapes(
   md5 VARCHAR(32) NOT NULL,
   lr2id INTEGER NOT NULL,
@@ -483,7 +488,7 @@ PRAGMA synchronous=OFF;
                            nullptr, nullptr, nullptr);
     if (ret != SQLITE_OK)
     {
-        std::println("sqlite3_exec: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+        std::println("sqlite3_exec: {} ({})", sqlite3_errmsg(db.get()), ret);
         return 1;
     }
 
@@ -492,9 +497,11 @@ PRAGMA synchronous=OFF;
     static constexpr int max_attempts = 5;
     static constexpr unsigned worker_cap = 16u;
 
-    auto work = [](WorkPool* work_pool_, unsigned worker_count, unsigned worker) {
-        SetThreadName(std::format("worker {}", worker).c_str());
+    auto work = [](WorkPool* work_pool_, const unsigned worker_count) {
         auto& work_pool = *work_pool_;
+        const size_t worker = work_pool.workers_alive++;
+        auto _bye_worker = mk_defer([&work_pool]() { work_pool.workers_alive--; });
+        SetThreadName(std::format("worker {}", worker).c_str());
 
         std::mt19937 jitter_gen{std::random_device{}()};
 
@@ -525,16 +532,8 @@ PRAGMA synchronous=OFF;
                 });
                 if (val)
                 {
-                    if (auto ok = insert_scrapes(work_pool.db.get(), md5_to_fetch, *val, request_time); !ok)
-                    {
-                        errors.emplace_back("insert_scrapes: " + ok.error().msg, request_time);
-                        work_pool.force_stop = true;
-                    }
-                    if (auto ok = insert_nicknames(work_pool.db.get(), *val, request_time); !ok)
-                    {
-                        errors.emplace_back("insert_nicknames: " + ok.error().msg, request_time);
-                        work_pool.force_stop = true;
-                    }
+                    std::unique_lock lock{work_pool.out_queues_mutex};
+                    work_pool.out_queue.emplace_back(md5_to_fetch, std::move(val->scores), request_time);
                     break;
                 }
                 else
@@ -568,11 +567,10 @@ PRAGMA synchronous=OFF;
             };
 
             if (auto error = concat_errors(errors); !error.empty())
-                if (auto ok = insert_to_retry(work_pool.db.get(), md5_to_fetch, error); !ok)
-                {
-                    std::println("insert_to_retry: {}", ok.error().msg);
-                    work_pool.force_stop = true;
-                }
+            {
+                std::unique_lock lock{work_pool.out_queues_mutex};
+                work_pool.out_error_queue.emplace_back(md5_to_fetch, std::move(error));
+            }
 
             auto fetched = ++work_pool.total_fetched;
             if (fetched % notify_every_this_fetches == 0)
@@ -590,14 +588,64 @@ PRAGMA synchronous=OFF;
         }
     };
 
-    std::vector<std::jthread> workers;
+    auto work_sql = [](WorkPool* work_pool_, sqlite3* db) {
+        auto& work_pool = *work_pool_;
+        std::vector<std::tuple<Md5, GoodResult, int64_t>> vals;
+        std::vector<std::pair<Md5, std::string>> errors;
+        // no 'should_stop', fetch workers may still want to insert some data
+        while (!work_pool.force_stop)
+        {
+            {
+                std::unique_lock lock{work_pool.out_queues_mutex};
+                vals.insert(vals.end(), std::make_move_iterator(work_pool.out_queue.begin()),
+                            std::make_move_iterator(work_pool.out_queue.end()));
+                work_pool.out_queue.clear();
+                errors.insert(errors.end(), std::make_move_iterator(work_pool.out_error_queue.begin()),
+                              std::make_move_iterator(work_pool.out_error_queue.end()));
+                work_pool.out_error_queue.clear();
+            }
 
+            if (vals.empty() && errors.empty())
+            {
+                if (work_pool.workers_alive == 0)
+                    break; // done
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+
+            for (auto&& [md5, error] : errors)
+            {
+                if (auto ok = insert_to_retry(db, md5, error); !ok)
+                {
+                    std::println("insert_to_retry: {}", ok.error().msg);
+                    work_pool.force_stop = true;
+                }
+            }
+            errors.clear();
+
+            for (auto&& [md5, val, request_time] : vals)
+            {
+                if (auto ok = insert_scrapes(db, md5, val, request_time); !ok)
+                {
+                    std::println("insert_scrapes: ", ok.error().msg, request_time);
+                    work_pool.force_stop = true;
+                }
+                if (auto ok = insert_nicknames(db, val, request_time); !ok)
+                {
+                    std::println("insert_nicknames: ", ok.error().msg, request_time);
+                    work_pool.force_stop = true;
+                }
+            }
+            vals.clear();
+        }
+    };
+
+    std::vector<std::jthread> workers;
     {
         const auto worker_count = std::min(std::max(std::thread::hardware_concurrency(), 2u), worker_cap);
         workers.reserve(worker_count);
         std::println("spawning {} workers", worker_count);
         for (auto i = 0u; i < worker_count; ++i)
-            workers.emplace_back(work, &work_pool, worker_count, i);
+            workers.emplace_back(work, &work_pool, worker_count);
     }
 
     if (md5list_path == nullptr)
@@ -606,11 +654,11 @@ PRAGMA synchronous=OFF;
         constexpr auto select_from_retry_sql = "SELECT md5 FROM to_retry"sv;
         sqlite3_stmt* stmt = nullptr;
         auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
-        int ret = sqlite3_prepare_v3(work_pool.db.get(), select_from_retry_sql.data(), select_from_retry_sql.size(), 0,
-                                     &stmt, nullptr);
+        int ret =
+            sqlite3_prepare_v3(db.get(), select_from_retry_sql.data(), select_from_retry_sql.size(), 0, &stmt, nullptr);
         if (ret != 0)
         {
-            std::println("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+            std::println("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db.get()), ret);
             work_pool.force_stop = true;
         }
 
@@ -623,7 +671,7 @@ PRAGMA synchronous=OFF;
             if (ret != SQLITE_ROW)
             {
                 work_pool.force_stop = true;
-                std::println("sqlite error: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+                std::println("sqlite error: {} ({})", sqlite3_errmsg(db.get()), ret);
                 break;
             }
             // reinterpret_cast SAFETY: casting to char is always safe
@@ -645,25 +693,29 @@ PRAGMA synchronous=OFF;
         stmt = nullptr;
         if (ret != SQLITE_OK)
         {
-            std::println("sqlite3_finalize: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+            std::println("sqlite3_finalize: {} ({})", sqlite3_errmsg(db.get()), ret);
             work_pool.force_stop = true;
         }
 
         // NOTE: we DELETE separately after instead of DELETE FROM as that would delete unhandled rows on errors.
         if (!work_pool.force_stop)
         {
-            ret = sqlite3_exec(work_pool.db.get(), "DELETE FROM to_retry;", nullptr, nullptr, nullptr);
+            ret = sqlite3_exec(db.get(), "DELETE FROM to_retry;", nullptr, nullptr, nullptr);
             if (ret != SQLITE_OK)
             {
-                std::println("sqlite3_exec: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
+                std::println("sqlite3_exec: {} ({})", sqlite3_errmsg(db.get()), ret);
                 work_pool.force_stop = true;
             }
         }
+
+        if (!work_pool.force_stop)
+            workers.emplace_back(work_sql, &work_pool, db.get());
 
         std::println("produced {} fetch tasks", song_count);
     }
     else
     {
+        workers.emplace_back(work_sql, &work_pool, db.get());
         // Read tasks from supplied file
         if (std::ifstream ifs(md5list_path); ifs.is_open())
         {
@@ -728,14 +780,14 @@ PRAGMA synchronous=OFF;
         constexpr auto error = "early-exit"sv;
         sqlite3_stmt* stmt = nullptr;
         auto _bb_stmt = mk_defer([&stmt]() { sqlite3_finalize(stmt); });
-        int ret = sqlite3_prepare_v3(work_pool.db.get(), insert_to_retry_sql.data(), insert_to_retry_sql.size(), 0,
-                                     &stmt, nullptr);
+        int ret =
+            sqlite3_prepare_v3(db.get(), insert_to_retry_sql.data(), insert_to_retry_sql.size(), 0, &stmt, nullptr);
         if (ret != 0)
             return std::unexpected{
-                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret)}};
+                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db.get()), ret)}};
         if (ret != 0)
             return std::unexpected{
-                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret)}};
+                ErrorDescription{std::format("sqlite3_prepare_v3: {} ({})", sqlite3_errmsg(db.get()), ret)}};
         while (!work_pool.queue.empty())
         {
             const auto& task = work_pool.queue.front();
@@ -745,11 +797,11 @@ PRAGMA synchronous=OFF;
             ret = sqlite3_step(stmt);
             if (ret != SQLITE_DONE)
                 return std::unexpected{
-                    ErrorDescription{std::format("sqlite3_step: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret)}};
+                    ErrorDescription{std::format("sqlite3_step: {} ({})", sqlite3_errmsg(db.get()), ret)}};
             ret = sqlite3_reset(stmt);
             if (ret != SQLITE_OK)
                 return std::unexpected{
-                    ErrorDescription{std::format("sqlite3_reset: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret)}};
+                    ErrorDescription{std::format("sqlite3_reset: {} ({})", sqlite3_errmsg(db.get()), ret)}};
 
             work_pool.queue.pop();
         }
@@ -757,7 +809,7 @@ PRAGMA synchronous=OFF;
         stmt = nullptr;
         if (ret != SQLITE_OK)
             return std::unexpected{
-                ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret)}};
+                ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db.get()), ret)}};
         return {};
     };
 
@@ -785,8 +837,10 @@ PRAGMA synchronous=OFF;
             return std::unexpected{ErrorDescription{std::format("sqlite3_finalize: {} ({})", sqlite3_errmsg(db), ret)}};
         return out;
     };
-    if (auto ok = select_to_retry_count(work_pool.db.get()); !ok)
-        std::println("mass_insert_to_retry: {}", ok.error().msg);
+    if (work_pool.force_stop)
+        std::println("emergency landing! you should start scraping from scratch now :(");
+    else if (auto ok = select_to_retry_count(db.get()); !ok)
+        std::println("select_to_retry_count: {}", ok.error().msg);
     else if (*ok > 0)
         std::println("restart without supplying a list now, we need to retry fetching {} charts", *ok);
     else
