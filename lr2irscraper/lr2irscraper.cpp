@@ -459,7 +459,6 @@ static void work(WorkPool* work_pool_, const unsigned worker_count)
             {
                 std::unique_lock lock{work_pool.out_queues_mutex};
                 work_pool.out_queue.emplace_back(md5_to_fetch, std::move(val->scores), request_time);
-                break;
             }
             else
             {
@@ -474,6 +473,9 @@ static void work(WorkPool* work_pool_, const unsigned worker_count)
             std::this_thread::sleep_for(
                 (std::chrono::milliseconds(1000) / requests_per_second * worker_count) +
                 std::chrono::milliseconds(std::uniform_int_distribution{0, max_jitter}(jitter_gen)));
+
+            if (val)
+                break;
         }
 
         auto concat_errors = [](std::span<std::pair<std::string, int64_t>> errors) {
