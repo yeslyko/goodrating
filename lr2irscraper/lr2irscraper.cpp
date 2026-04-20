@@ -405,10 +405,10 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
     if (auto v = from_chars<int>(args[2]))
         your_lr2id = *v;
     else
-    {
-        std::println("invalid your_lr2id");
-        return 1;
-    }
+        return std::println("failed to parse 'your_lr2id'"), 1;
+    // LR2IR returns empty answers for such LR2IDs
+    if (your_lr2id > 999'999)
+        return std::println("invalid 'your_lr2id': above 999999: {}", your_lr2id), 1;
     const char* md5list_path = args.size() == 4 ? args[3] : nullptr;
 
     struct SqliteDeleter
