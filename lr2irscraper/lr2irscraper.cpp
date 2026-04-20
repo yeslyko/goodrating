@@ -394,6 +394,12 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
     constexpr auto&& usage = "lr2irscraper {result.db} {your_lr2id} {?md5list.txt}\n"
                              "  md5list.txt - don't pass to continue from where stopped";
 
+    if (sqlite3_threadsafe() == 0)
+    {
+        std::println("sqlite3_threadsafe() == 0");
+        return 1;
+    }
+
     std::span args{argv, static_cast<size_t>(argc)};
     if (args.size() != 3 && args.size() != 4)
     {
@@ -444,12 +450,6 @@ int main(int argc, char* argv[]) // NOLINT(bugprone-exception-escape)
             std::println("sqlite3_open: {} ({})", sqlite3_errmsg(work_pool.db.get()), ret);
             return 1;
         }
-    }
-
-    if (sqlite3_threadsafe() == 0)
-    {
-        std::println("sqlite3_threadsafe() == 0");
-        return 1;
     }
 
     int ret = sqlite3_exec(work_pool.db.get(), R"(
