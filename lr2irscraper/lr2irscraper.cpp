@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -73,35 +74,51 @@ static std::expected<void, ErrorDescription> convert(std::span<char> in_buf, std
     {
         void operator()(iconv_t icd)
         {
+            if (reinterpret_cast<intptr_t>(icd) == -1)
+                return;
             int ret = iconv_close(icd);
             if (ret == -1)
             {
                 const int error = errno;
-                std::println("iconv_close() error: {} ({})", "safe_strerror(error)", error);
+                std::println("iconv_close() error: {} ({})",
+                             std::generic_category().default_error_condition(error).message(), error);
             }
         }
     };
     using IcdPtr = std::unique_ptr<std::remove_pointer_t<iconv_t>, IcdDeleter>;
 
     auto icd = IcdPtr(iconv_open("utf-8", "cp932"));
-    assert(icd != (iconv_t)-1);
+    if (reinterpret_cast<intptr_t>(icd.get()) == -1)
+        if (int error = errno)
+            return std::unexpected{
+                ErrorDescription{std::format("iconv_open() error: {} ({})",
+                                             std::generic_category().default_error_condition(error).message(), error)}};
 
     output.clear();
     char* src_ptr = in_buf.data();
     std::size_t src_size = in_buf.size();
 
     char buf[1024] /*[[indeterminate]]*/;
-    while (0 < src_size)
+    while (src_size > 0)
     {
         char* dst_ptr = &buf[0];
         std::size_t dst_size = std::size(buf);
         std::size_t res = ::iconv(icd.get(), &src_ptr, &src_size, &dst_ptr, &dst_size);
         if (res == static_cast<std::size_t>(-1))
             if (int error = errno; error != E2BIG)
-                return std::unexpected{
-                    ErrorDescription{std::format("iconv() error: {} ({})", "safe_strerror(error)", error)}};
+                return std::unexpected{ErrorDescription{
+                    std::format("iconv() error: {} ({})",
+                                std::generic_category().default_error_condition(error).message(), error)}};
         output.append(&buf[0], std::size(buf) - dst_size);
     }
+
+    // > In each series of calls to iconv(), the last should be one with inbuf or *inbuf  equal  to NULL, in order to
+    // > flush out any partially converted input.
+    std::size_t res = ::iconv(icd.get(), nullptr, nullptr, nullptr, nullptr);
+    if (res == static_cast<std::size_t>(-1))
+        if (int error = errno)
+            return std::unexpected{ErrorDescription{std::format(
+                "iconv() error: {} ({})", std::generic_category().default_error_condition(error).message(), error)}};
 
     return {};
 }
