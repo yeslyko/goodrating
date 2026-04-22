@@ -515,11 +515,9 @@ static void work_sql(WorkPool* work_pool_, sqlite3* db)
     {
         {
             std::unique_lock lock{work_pool.out_queues_mutex};
-            vals.insert(vals.end(), std::make_move_iterator(work_pool.out_queue.begin()),
-                        std::make_move_iterator(work_pool.out_queue.end()));
+            std::ranges::move(work_pool.out_queue, std::back_inserter(vals));
             work_pool.out_queue.clear();
-            errors.insert(errors.end(), std::make_move_iterator(work_pool.out_error_queue.begin()),
-                          std::make_move_iterator(work_pool.out_error_queue.end()));
+            std::ranges::move(work_pool.out_error_queue, std::back_inserter(errors));
             work_pool.out_error_queue.clear();
         }
 
