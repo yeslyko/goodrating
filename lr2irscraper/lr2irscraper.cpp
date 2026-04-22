@@ -39,11 +39,7 @@ static constexpr auto&& commit_sql = "COMMIT;";
 #include <sys/prctl.h>
 [[nodiscard]] static std::string ellipsize(const std::string_view s, const size_t len)
 {
-    std::string out;
-    out.reserve(len);
-    out += s.substr(0, len / 2);
-    out += '~';
-    out += s.substr(s.size() - len / 2);
+    std::string out = std::format("{}~{}", s.substr(0, len / 2), s.substr(s.size() - len / 2));
     assert(out.size() <= len);
     return out;
 }
@@ -478,19 +474,13 @@ static void work(WorkPool* work_pool_, const unsigned worker_count)
                 break;
         }
 
-        auto concat_errors = [](std::span<std::pair<std::string, int64_t>> errors) {
-            std::string error;
-            for (bool first = true; const auto& [error_, timestamp] : errors)
-            {
-                if (!first)
-                    error += "|";
-                error += '[';
-                error += std::to_string(timestamp);
-                error += ']';
-                error += error_;
-                first = false;
-            }
-            return error;
+        auto concat_errors = [](std::span<const std::pair<std::string, int64_t>> errors) {
+            std::string out;
+            for (const auto& [error, timestamp] : errors)
+                std::format_to(std::back_inserter(out), "[{}]{}|", timestamp, error);
+            if (!out.empty())
+                out.pop_back();
+            return out;
         };
 
         if (auto error = concat_errors(errors); !error.empty())
